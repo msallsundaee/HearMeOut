@@ -9,6 +9,7 @@
   let selectedTracks = $state<Set<string>>(new Set());
   let isExporting = $state(false);
   let exportSuccess = $state(false);
+  let customPlaylistName = $state('HearMeOut Discover');
 
   // Initialize all tracks as selected when the store loads
   $effect(() => {
@@ -34,6 +35,23 @@
     }
   }
 
+  function getCachedPlaylistId(name: string) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('hearmeout_playlists') || '{}');
+      return cache[name] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveCachedPlaylistId(name: string, id: string) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('hearmeout_playlists') || '{}');
+      cache[name] = id;
+      localStorage.setItem('hearmeout_playlists', JSON.stringify(cache));
+    } catch (e) {}
+  }
+
   async function exportToSpotify() {
     if (!data.hasSpotifyToken) {
       window.location.href = '/api/auth/login?redirect=/saved';
@@ -43,22 +61,41 @@
     if (selectedTracks.size === 0) return;
 
     isExporting = true;
+    const finalName = customPlaylistName.trim() || 'HearMeOut Discover';
+    
     try {
       const res = await fetch('/api/export-spotify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trackIds: Array.from(selectedTracks) })
+        body: JSON.stringify({ 
+            trackIds: Array.from(selectedTracks),
+            playlistName: finalName,
+            cachedPlaylistId: getCachedPlaylistId(finalName)
+        })
       });
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.playlistId) {
+            saveCachedPlaylistId(finalName, data.playlistId);
+        }
+        
         exportSuccess = true;
-        // Optionally, remove them from local storage after successful export
-        // Array.from(selectedTracks).forEach(id => savedTracks.removeTrack(id));
+        // Remove them from local storage after successful export
+        Array.from(selectedTracks).forEach(id => {
+            savedTracks.removeTrack(id);
+        });
+        selectedTracks.clear();
+        selectedTracks = new Set(selectedTracks); // trigger reactivity
       } else if (res.status === 401) {
         window.location.href = '/api/auth/login?redirect=/saved';
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Export failed: ${res.status} - ${errorData.error || 'Unknown error'}`);
       }
     } catch (e) {
       console.error('Failed to export', e);
+      alert("Something went wrong communicating with the server.");
     } finally {
       isExporting = false;
     }
@@ -77,6 +114,18 @@
       </div>
     </div>
 
+    {#if exportSuccess}
+      <div class="bg-green-500/20 border border-green-500/50 rounded-2xl p-6 mb-8 flex items-start space-x-4" in:slide>
+        <div class="bg-green-500 rounded-full p-2 text-black shrink-0">
+          <Check size={24} />
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-green-400 mb-1">Successfully Exported!</h3>
+          <p class="text-green-400/80">Your selected tracks have been added to your '{customPlaylistName || 'HearMeOut Discover'}' Spotify playlist.</p>
+        </div>
+      </div>
+    {/if}
+
     {#if $savedTracks.length === 0}
       <div class="bg-gray-900 border border-gray-800 rounded-3xl p-12 text-center mt-12">
         <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-800 mb-6">
@@ -87,17 +136,6 @@
         <a href="/categories" class="inline-block bg-primary text-white font-bold py-4 px-8 rounded-full hover:scale-105 transition-transform shadow-lg shadow-primary/30">Start Exploring</a>
       </div>
     {:else}
-      {#if exportSuccess}
-        <div class="bg-green-500/20 border border-green-500/50 rounded-2xl p-6 mb-8 flex items-start space-x-4" in:slide>
-          <div class="bg-green-500 rounded-full p-2 text-black shrink-0">
-            <Check size={24} />
-          </div>
-          <div>
-            <h3 class="text-xl font-bold text-green-400 mb-1">Successfully Exported!</h3>
-            <p class="text-green-400/80">Your selected tracks have been added to your Spotify 'Liked Songs' library.</p>
-          </div>
-        </div>
-      {/if}
 
       <div class="space-y-4 mb-8">
         {#each $savedTracks as track (track.id)}
@@ -135,9 +173,18 @@
 {#if $savedTracks.length > 0}
   <div class="fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-xl border-t border-gray-800 p-4 md:p-6 z-50 transform transition-transform" in:slide>
     <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div class="text-center sm:text-left">
-        <p class="text-white font-bold text-lg">{selectedTracks.size} tracks selected</p>
-        <p class="text-gray-400 text-sm">Ready to add to your Spotify library</p>
+      <div class="text-center sm:text-left flex-1 w-full">
+        <p class="text-white font-bold text-lg mb-1">{selectedTracks.size} tracks selected</p>
+        <div class="flex items-center justify-center sm:justify-start space-x-2">
+          <label for="playlistName" class="text-gray-400 text-sm whitespace-nowrap hidden sm:block">Playlist:</label>
+          <input 
+            type="text" 
+            id="playlistName"
+            bind:value={customPlaylistName} 
+            placeholder="Playlist Name"
+            class="bg-gray-900/80 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white w-full sm:max-w-[200px] focus:border-primary focus:outline-none transition-colors"
+          />
+        </div>
       </div>
 
       <button 

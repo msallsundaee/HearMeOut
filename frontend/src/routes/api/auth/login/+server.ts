@@ -9,7 +9,7 @@ export async function GET() {
 		throw new Error('Missing SPOTIFY_CLIENT_ID');
 	}
 
-	const scope = 'user-library-modify user-library-read playlist-modify-public playlist-modify-private user-read-private user-read-email';
+	const scope = 'user-library-modify user-library-read playlist-modify-public playlist-modify-private playlist-read-private user-read-private user-read-email';
 	const state = Math.random().toString(36).substring(7);
 
 	const params = new URLSearchParams({
@@ -17,7 +17,8 @@ export async function GET() {
 		client_id: SPOTIFY_CLIENT_ID,
 		scope,
 		redirect_uri: SPOTIFY_REDIRECT_URI,
-		state
+		state,
+		show_dialog: 'true'
 	});
 
 	throw redirect(302, `https://accounts.spotify.com/authorize?${params.toString()}`);

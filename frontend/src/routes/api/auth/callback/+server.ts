@@ -27,6 +27,7 @@ export async function GET({ url, cookies }) {
 			})
 		};
 
+		let success = false;
 		try {
 			const response = await fetch('https://accounts.spotify.com/api/token', authOptions);
 			const data = await response.json();
@@ -46,12 +47,15 @@ export async function GET({ url, cookies }) {
 					maxAge: 60 * 60 * 24 * 30 // 30 days
 				});
 
-				// After successful login, redirect to categories page
-				throw redirect(302, '/categories');
+				success = true;
 			}
 		} catch (error) {
 			console.error('Error during token exchange', error);
 			throw redirect(302, '/?error=invalid_token');
+		}
+		
+		if (success) {
+			throw redirect(302, '/categories');
 		}
 	}
 
