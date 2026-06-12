@@ -41,6 +41,11 @@
           <Music class="mr-2" size={24} />
           Connect Spotify
         </a>
+      {:else}
+        <div class="flex items-center justify-center w-full py-4 px-6 rounded-full bg-[#1DB954]/20 border border-[#1DB954]/50 text-[#1DB954] font-bold text-lg shadow-lg opacity-80">
+          <Music class="mr-2" size={24} />
+          Spotify Connected
+        </div>
       {/if}
       
       {#if !$page.data.isLoggedIn}

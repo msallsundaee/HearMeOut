@@ -1,6 +1,13 @@
 import { env } from '$env/dynamic/private';
 
+let cachedClientToken: string | null = null;
+let tokenExpirationTime: number = 0;
+
 export async function getClientCredentialsToken(fetch: typeof globalThis.fetch) {
+    if (cachedClientToken && Date.now() < tokenExpirationTime) {
+        return cachedClientToken;
+    }
+
     try {
         const authOptions = {
             method: 'POST',
@@ -12,7 +19,13 @@ export async function getClientCredentialsToken(fetch: typeof globalThis.fetch) 
         };
         const res = await fetch('https://accounts.spotify.com/api/token', authOptions);
         const text = await res.text();
-        if (res.ok) return JSON.parse(text).access_token;
+        if (res.ok) {
+            const data = JSON.parse(text);
+            cachedClientToken = data.access_token;
+            // Spotify tokens usually expire in 3600 seconds (1 hour)
+            tokenExpirationTime = Date.now() + (data.expires_in * 1000) - 60000; // Subtract 1 min buffer
+            return cachedClientToken;
+        }
     } catch (e) {
         console.error('Error fetching client credentials token:', e);
     }
