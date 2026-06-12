@@ -14,6 +14,7 @@ export async function GET({ url, cookies }) {
 	}
 
 	if (code) {
+		const redirect_uri = `${url.origin}/api/auth/callback`;
 		const authOptions = {
 			method: 'POST',
 			headers: {
@@ -22,7 +23,7 @@ export async function GET({ url, cookies }) {
 			},
 			body: new URLSearchParams({
 				code: code,
-				redirect_uri: SPOTIFY_REDIRECT_URI,
+				redirect_uri: redirect_uri,
 				grant_type: 'authorization_code'
 			})
 		};
