@@ -27,8 +27,8 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  cors: ['http://localhost:5173', 'https://hearmeout.com'],
-  csrf: ['http://localhost:5173', 'https://hearmeout.com'],
+  cors: ['http://localhost:5173', 'https://hearmeout.com', 'https://hearme-out.vercel.app', process.env.FRONTEND_URL || ''].filter(Boolean),
+  csrf: ['http://localhost:5173', 'https://hearmeout.com', 'https://hearme-out.vercel.app', process.env.FRONTEND_URL || ''].filter(Boolean),
 
   db: postgresAdapter({
     pool: {
