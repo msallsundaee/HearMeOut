@@ -5,26 +5,46 @@
   let { data } = $props();
   
   let tracks = $state([...data.tracks]);
+  let isLoadingMore = $state(false);
   let showLoginPrompt = $state(false);
   
+  async function fetchMoreTracks() {
+    if (isLoadingMore) return;
+    isLoadingMore = true;
+    try {
+      const res = await fetch(`/api/tracks?slug=${data.categorySlug}`);
+      if (res.ok) {
+        const newTracks = await res.json();
+        // Prepend new tracks to the bottom of the deck so they appear under the current cards
+        tracks = [...newTracks, ...tracks];
+      }
+    } catch (e) {
+      console.error('Failed to fetch more tracks', e);
+    }
+    isLoadingMore = false;
+  }
+
   async function handleSwipe(direction: 'left'|'right', track: any) {
     console.log(`Swiped ${direction} on ${track.title}`);
     
-    const res = await fetch('/api/swipe', {
+    // Background fetch to save history
+    fetch('/api/swipe', {
       method: 'POST',
       body: JSON.stringify({ track, direction }),
       headers: { 'Content-Type': 'application/json' }
+    }).then(res => {
+        if (res.status === 401 && direction === 'right') {
+            showLoginPrompt = true;
+        }
     });
 
-    if (res.status === 401 && direction === 'right') {
-      showLoginPrompt = true;
-      // Put the track back to allow saving later? 
-      // For now we'll just let them skip it or they lose this save, 
-      // but they can login and their next swipes will be saved.
-    }
-    
-    // Remove track from stack
+    // Remove track from stack (it was swiped away)
     tracks = tracks.filter(t => t.id !== track.id);
+
+    // Infinite scrolling: if we are running low on tracks, fetch more in the background!
+    if (tracks.length <= 3) {
+      fetchMoreTracks();
+    }
   }
 </script>
 
@@ -44,12 +64,12 @@
     <div class="w-10"></div> <!-- spacer -->
   </div>
   
-  <div class="flex-1 relative flex items-center justify-center w-full max-w-sm mx-auto z-10">
+  <div class="relative w-full max-w-sm aspect-[3/4] mx-auto mt-4 mb-16 perspective-1000">
     {#if tracks.length > 0}
       {#each tracks as track, index (track.id)}
         {#if index >= tracks.length - 3} <!-- Render only top 3 cards for performance -->
           <div class="absolute w-full flex justify-center origin-bottom transition-all" style="z-index: {index}; transform: scale({1 - (tracks.length - 1 - index) * 0.05}) translateY({(tracks.length - 1 - index) * -20}px);">
-            <SwipeCard {track} onSwipe={handleSwipe} />
+            <SwipeCard {track} onSwipe={handleSwipe} isActive={index === tracks.length - 1} />
           </div>
         {/if}
       {/each}

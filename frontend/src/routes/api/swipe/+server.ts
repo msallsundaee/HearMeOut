@@ -23,21 +23,25 @@ export async function POST({ request, cookies }) {
     }
 
     // 2. Save track and swipe history to Payload CMS
-    // This assumes we have a service account or handle auth appropriately
-    // For demo, we are just mocking the Payload interaction
-    
-    /*
     const payloadSaveUrl = `${env.PAYLOAD_API_URL}/swipe-history`;
-    await fetch(payloadSaveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            track: track.spotifyId, // Might need to upsert track first in Payload
-            action: direction === 'right' ? 'save' : 'skip',
-            // user: '...userId...'
-        })
-    });
-    */
+    try {
+        await fetch(payloadSaveUrl, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `API-Key ${env.PAYLOAD_API_KEY}`
+            },
+            body: JSON.stringify({
+                // Payload expects relationship fields to be IDs or object IDs.
+                // You will need to upsert the track to Payload Tracks collection first, then pass the Payload ID here.
+                // For now we just pass the Spotify ID string (will need backend Track ingestion logic later)
+                // track: track.spotifyId,
+                action: direction === 'right' ? 'save' : 'skip',
+            })
+        });
+    } catch (e) {
+        console.error('Failed to save to Payload CMS:', e);
+    }
 
     return json({ success: true, message: `Swipe ${direction} recorded.` });
 }
