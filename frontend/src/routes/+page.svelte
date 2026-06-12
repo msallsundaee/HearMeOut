@@ -9,15 +9,15 @@
   <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
   <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#1DB954]/20 rounded-full blur-3xl pointer-events-none"></div>
 
-  <div class="max-w-md w-full text-center space-y-8 z-10">
+  <div class="max-w-3xl w-full text-center space-y-8 z-10">
     <div class="flex justify-center mb-8">
-      <div class="bg-primary p-4 rounded-full shadow-2xl shadow-primary/50 animate-bounce">
-        <Flame size={64} class="text-white" />
+      <div class="bg-primary p-4 md:p-6 rounded-full shadow-2xl shadow-primary/50 animate-bounce">
+        <Flame class="text-white w-16 h-16 md:w-24 md:h-24" />
       </div>
     </div>
     
-    <h1 class="text-6xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">HearMeOut</h1>
-    <p class="text-xl text-gray-400 mb-12">Discover new music with a swipe.</p>
+    <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">HearMeOut</h1>
+    <p class="text-xl md:text-3xl text-gray-400 mb-12">Discover new music with a swipe. Smash or Pass!</p>
     
     {#if $page.url.searchParams.get('error')}
       <div class="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6">

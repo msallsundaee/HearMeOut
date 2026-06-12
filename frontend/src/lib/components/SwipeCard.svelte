@@ -108,8 +108,8 @@
 
   <!-- Content (Below the Artwork) -->
   <div class="w-full pt-6 flex flex-col items-center text-center pointer-events-none transition-opacity duration-300 {isActive ? 'opacity-100' : 'opacity-0'}">
-    <h2 class="text-3xl font-black text-white leading-tight mb-1 truncate w-full drop-shadow-md">{track.title}</h2>
-    <p class="text-xl text-gray-300 font-medium truncate w-full drop-shadow-md">{track.artist}</p>
+    <h2 class="text-3xl font-black text-white leading-tight mb-1 w-full drop-shadow-md">{track.title}</h2>
+    <p class="text-xl text-gray-300 font-medium w-full drop-shadow-md">{track.artist}</p>
     {#if track.duration_ms}
       <p class="text-sm text-gray-400 font-medium mt-1 drop-shadow-sm">{formatDuration(track.duration_ms)}</p>
     {/if}

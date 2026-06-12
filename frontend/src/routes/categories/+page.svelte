@@ -3,12 +3,13 @@
   let { data } = $props();
 </script>
 
-<div class="min-h-screen bg-black text-white p-6 pb-24" in:fade>
-  <div class="max-w-2xl mx-auto pt-8">
-    <h1 class="text-4xl font-black mb-2 tracking-tight">Choose your vibe</h1>
-    <p class="text-gray-400 mb-8 text-lg">What are you in the mood for today?</p>
+<div class="min-h-screen bg-black text-white px-4 pb-12 pt-24" in:fade>
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-3xl md:text-5xl font-black">Categories</h1>
+    </div>
     
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
       {#each data.categories as category}
         <a 
           href={`/discover/${category.slug}`}

@@ -15,7 +15,7 @@ export async function load({ fetch }) {
     // Fallback to mock data if no data in payload
     return {
         categories: [
-            { id: 11, name: 'Discover', slug: 'random', image: { url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600&auto=format&fit=crop' } },
+            { id: 11, name: 'Discover', slug: 'discover', image: { url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600&auto=format&fit=crop' } },
             { id: 1, name: 'Pop Hits', slug: 'pop', image: { url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=600&auto=format&fit=crop' } },
             { id: 2, name: 'Hip Hop / Rap', slug: 'hip-hop', image: { url: 'https://images.unsplash.com/photo-1508973379184-7517410fb0bc?q=80&w=600&auto=format&fit=crop' } },
             { id: 3, name: 'Indie Vibes', slug: 'indie', image: { url: 'https://images.unsplash.com/photo-1493225457124-a1a2a5f5f9af?q=80&w=600&auto=format&fit=crop' } },
