@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Music, Flame } from 'lucide-svelte';
+  import { Music, Flame, User } from 'lucide-svelte';
   import { page } from '$app/stores';
 </script>
 
@@ -25,7 +25,7 @@
       </div>
     {/if}
 
-    <div class="space-y-4 pt-8">
+    <div class="max-w-md mx-auto space-y-4 pt-8">
       <a 
         href="/categories"
         class="flex items-center justify-center w-full py-4 px-6 rounded-full bg-white text-black hover:bg-gray-200 transition-all transform hover:scale-105 active:scale-95 font-bold text-lg shadow-lg"
@@ -33,15 +33,35 @@
         <Flame class="mr-2" size={24} />
         Start Exploring
       </a>
-      <a 
-        href="/api/auth/login"
-        class="flex items-center justify-center w-full py-4 px-6 rounded-full bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border border-[#1DB954] transition-all transform hover:scale-105 active:scale-95 text-[#1DB954] font-bold text-lg shadow-lg"
-      >
-        <Music class="mr-2" size={24} />
-        Connect Spotify
-      </a>
+      {#if !$page.data.hasSpotifyToken}
+        <a 
+          href="/api/auth/login"
+          class="flex items-center justify-center w-full py-4 px-6 rounded-full bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border border-[#1DB954] transition-all transform hover:scale-105 active:scale-95 text-[#1DB954] font-bold text-lg shadow-lg"
+        >
+          <Music class="mr-2" size={24} />
+          Connect Spotify
+        </a>
+      {/if}
       
-      <p class="text-xs text-gray-500 mt-4">
+      {#if !$page.data.isLoggedIn}
+        <div class="pt-6 border-t border-gray-800 flex flex-col sm:flex-row gap-4">
+          <a 
+            href="/login" 
+            class="flex-1 flex items-center justify-center py-4 px-6 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-700 transition-all transform hover:scale-105 active:scale-95 text-white font-bold shadow-lg"
+          >
+            <User class="mr-2" size={20} />
+            Sign In
+          </a>
+          <a 
+            href="/register" 
+            class="flex-1 flex items-center justify-center py-4 px-6 rounded-full bg-primary hover:bg-primary/90 text-black font-bold shadow-lg transition-all transform hover:scale-105 active:scale-95"
+          >
+            Sign Up
+          </a>
+        </div>
+      {/if}
+      
+      <p class="text-xs text-gray-500 mt-6">
         We use Spotify to customize your experience and save your liked tracks.
       </p>
     </div>

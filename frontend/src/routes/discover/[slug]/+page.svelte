@@ -1,12 +1,12 @@
 <script lang="ts">
   import SwipeCard from '$lib/components/SwipeCard.svelte';
   import { fade } from 'svelte/transition';
+  import { savedTracks } from '$lib/stores/savedTracks';
   
   let { data } = $props();
   
   let tracks = $state([...data.tracks]);
   let isLoadingMore = $state(false);
-  let showLoginPrompt = $state(false);
   
   async function fetchMoreTracks() {
     if (isLoadingMore) return;
@@ -25,18 +25,16 @@
   }
 
   async function handleSwipe(direction: 'left'|'right', track: any) {
-    console.log(`Swiped ${direction} on ${track.title}`);
-    
-    // Background fetch to save history
-    fetch('/api/swipe', {
-      method: 'POST',
-      body: JSON.stringify({ track, direction }),
-      headers: { 'Content-Type': 'application/json' }
-    }).then(res => {
-        if (res.status === 401 && direction === 'right') {
-            showLoginPrompt = true;
-        }
-    });
+    if (direction === 'right') {
+      savedTracks.saveTrack(track);
+      
+      // Still log swipe to backend asynchronously
+      fetch('/api/swipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track, direction })
+      }).catch(e => console.error('Error saving swipe log', e));
+    }
 
     // Remove track from stack (it was swiped away)
     tracks = tracks.filter(t => t.id !== track.id);
@@ -87,22 +85,4 @@
     </div>
     <p class="text-gray-500 text-sm font-medium tracking-wide uppercase">Swipe left to skip &middot; Swipe right to save</p>
   </div>
-
-  <!-- Login Prompt Modal -->
-  {#if showLoginPrompt}
-    <div class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" in:fade out:fade>
-      <div class="bg-gray-900 border border-gray-800 rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl">
-        <div class="bg-primary/20 p-4 rounded-full inline-block mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1DB954" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        </div>
-        <h2 class="text-2xl font-bold text-white">Save your discoveries</h2>
-        <p class="text-gray-400">Connect your Spotify account to save liked tracks directly to your library.</p>
-        
-        <div class="space-y-3 pt-4">
-          <a href="/api/auth/login" class="block w-full py-3 px-6 rounded-full bg-[#1DB954] text-black font-bold hover:scale-105 transition-transform">Connect Spotify</a>
-          <button onclick={() => showLoginPrompt = false} class="block w-full py-3 px-6 rounded-full bg-gray-800 text-white font-bold hover:bg-gray-700 transition-colors">Maybe Later</button>
-        </div>
-      </div>
-    </div>
-  {/if}
 </div>
