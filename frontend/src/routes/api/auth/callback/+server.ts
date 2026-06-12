@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { dev } from '$app/environment';
 
 const SPOTIFY_CLIENT_ID = env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = env.SPOTIFY_CLIENT_SECRET;
@@ -37,14 +38,14 @@ export async function GET({ url, cookies }) {
 				cookies.set('spotify_access_token', data.access_token, {
 					path: '/',
 					httpOnly: true,
-					secure: process.env.NODE_ENV === 'production',
+					secure: !dev,
 					maxAge: data.expires_in
 				});
 
 				cookies.set('spotify_refresh_token', data.refresh_token, {
 					path: '/',
 					httpOnly: true,
-					secure: process.env.NODE_ENV === 'production',
+					secure: !dev,
 					maxAge: 60 * 60 * 24 * 30 // 30 days
 				});
 
