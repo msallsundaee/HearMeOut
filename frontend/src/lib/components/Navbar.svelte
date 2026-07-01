@@ -2,6 +2,7 @@
   import { ArrowLeft, User, Flame, Library, LogOut } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   
   let showBackButton = $derived($page.url.pathname !== '/');
   
@@ -14,6 +15,14 @@
   });
 
   let showDropdown = $state(false);
+
+  function handleBack() {
+    if ($page.url.pathname.startsWith('/discover/')) {
+      goto('/categories');
+    } else {
+      history.back();
+    }
+  }
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -29,7 +38,7 @@
     <div class="flex-1 flex justify-start pointer-events-auto">
       {#if showBackButton}
         <button 
-          onclick={() => history.back()} 
+          onclick={handleBack} 
           class="p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-black transition-colors shadow-lg border border-white/10"
         >
           <ArrowLeft size={24} />
