@@ -12,15 +12,25 @@
   let audioRef = $state<HTMLAudioElement | null>(null);
   let isPlaying = $state(false);
 
+  let isBuffering = $state(false);
+
   $effect(() => {
     if (audioRef) {
       if (isActive) {
-        audioRef.play().then(() => isPlaying = true).catch(() => isPlaying = false);
+        isBuffering = true;
+        audioRef.play().then(() => {
+          isPlaying = true;
+          isBuffering = false;
+        }).catch(() => {
+          isPlaying = false;
+          isBuffering = false;
+        });
       } else {
         audioRef.pause();
         // Reset playback when not active
         audioRef.currentTime = 0;
         isPlaying = false;
+        isBuffering = false;
       }
     }
   });
@@ -89,10 +99,12 @@
 
     {#if track.previewUrl}
       <button 
-        class="absolute bottom-4 right-4 bg-primary hover:bg-primary/90 text-white rounded-full p-4 pointer-events-auto transform transition-transform active:scale-95 shadow-lg shadow-black/50 shrink-0"
+        class="absolute bottom-4 right-4 bg-primary hover:bg-primary/90 text-white rounded-full p-4 pointer-events-auto transform transition-transform active:scale-95 shadow-lg shadow-black/50 shrink-0 flex items-center justify-center min-w-[60px] min-h-[60px]"
         onclick={(e) => { e.stopPropagation(); togglePlay(); }}
       >
-        {#if isPlaying}
+        {#if isBuffering}
+          <div class="w-7 h-7 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+        {:else if isPlaying}
           <Pause size={28} fill="currentColor" />
         {:else}
           <Play size={28} fill="currentColor" />
@@ -102,6 +114,9 @@
          bind:this={audioRef} 
          src={track.previewUrl} 
          onended={() => isPlaying = false}
+         onwaiting={() => isBuffering = true}
+         onplaying={() => isBuffering = false}
+         oncanplay={() => isBuffering = false}
       ></audio>
     {/if}
   </div>

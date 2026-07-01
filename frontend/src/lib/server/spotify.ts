@@ -34,19 +34,47 @@ export async function getClientCredentialsToken(fetch: typeof globalThis.fetch) 
 
 export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
     let offset = Math.floor(Math.random() * 100);
-    let spotifyUrl = `https://api.spotify.com/v1/search?q=genre:${slug}&type=track&limit=10&offset=${offset}`;
+    const genreMap: Record<string, string> = {
+        'pop': 'genre:pop',
+        'hip-hop': 'genre:"hip hop"',
+        'indie': 'genre:indie',
+        'rock': 'genre:rock',
+        'r-n-b': 'genre:"r&b"',
+        'electronic': 'genre:edm',
+        'country': 'genre:country',
+        'k-pop': 'genre:"k-pop"'
+    };
+
+    const currentYear = new Date().getFullYear();
+    let query = genreMap[slug] || `genre:${slug}`;
     if (slug === 'workout') {
-         spotifyUrl = `https://api.spotify.com/v1/search?q=workout%20motivation&type=track&limit=10&offset=${offset}`;
+         query = 'workout motivation';
     } else if (slug === 'chill') {
-         spotifyUrl = `https://api.spotify.com/v1/search?q=chill%20relax&type=track&limit=10&offset=${offset}`;
+         query = 'chill relax';
     } else if (slug === 'top-50') {
-         spotifyUrl = `https://api.spotify.com/v1/search?q=year:2024-2025&type=track&limit=10&offset=${offset}`;
+         query = `year:${currentYear - 1}-${currentYear}`;
     } else if (slug === 'discover' || slug === 'random') {
+         const genres = ['pop', 'rock', 'hip-hop', 'r-n-b', 'indie', 'electronic', 'jazz', 'classical', 'country', 'latin', 'reggae', 'metal', 'soul', 'house', 'techno', 'punk'];
+         const randomGenre = genres[Math.floor(Math.random() * genres.length)];
          const chars = 'abcdefghijklmnopqrstuvwxyz';
          const randomChar = chars.charAt(Math.floor(Math.random() * chars.length));
-         offset = Math.floor(Math.random() * 500);
-         spotifyUrl = `https://api.spotify.com/v1/search?q=${randomChar}&type=track&limit=10&offset=${offset}`;
+         
+         // Select a random 5-year window from 1960 to the current year to fetch timeless music
+         const startYear = 1960 + Math.floor(Math.random() * (currentYear - 1960 - 5));
+         const endYear = startYear + 5;
+
+         const queries = [
+             `genre:${randomGenre}`,
+             `genre:${randomGenre} ${randomChar}`,
+             `year:${startYear}-${endYear} ${randomChar}`,
+             `%${randomChar}%`,
+             `year:1970-${currentYear}`
+         ];
+         query = queries[Math.floor(Math.random() * queries.length)];
+         offset = Math.floor(Math.random() * 150); // Keep offset safe to avoid empty pages on niche queries
     }
+    
+    const spotifyUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10&offset=${offset}`;
     
     const res = await fetch(spotifyUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } });
     const text = await res.text();

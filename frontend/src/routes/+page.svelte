@@ -1,6 +1,12 @@
 <script lang="ts">
   import { Music, Flame, User } from 'lucide-svelte';
   import { page } from '$app/stores';
+  import { preloadData } from '$app/navigation';
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    preloadData('/categories');
+  });
 </script>
 
 <div class="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">

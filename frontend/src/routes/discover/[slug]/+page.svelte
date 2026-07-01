@@ -64,6 +64,14 @@
             </div>
           {/if}
         {/each}
+      {:else if isLoadingMore}
+        <div class="flex flex-col items-center justify-center space-y-6 mt-20" in:fade>
+          <div class="relative w-20 h-20">
+            <div class="absolute inset-0 rounded-full border-4 border-white/10"></div>
+            <div class="absolute inset-0 rounded-full border-4 border-t-white border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          </div>
+          <h2 class="text-xl font-medium text-gray-400">Loading new tracks...</h2>
+        </div>
       {:else}
         <div class="text-center space-y-6 animate-pulse mt-20">
           <h2 class="text-3xl font-black text-gray-300">You've seen them all!</h2>
