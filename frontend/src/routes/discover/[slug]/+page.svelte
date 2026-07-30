@@ -1,9 +1,9 @@
 <script lang="ts">
   import SwipeCard from '$lib/components/SwipeCard.svelte';
   import Aurora from '$lib/components/Aurora.svelte';
-  import { fade, fly, scale } from 'svelte/transition';
+  import { fade, fly } from 'svelte/transition';
   import { savedTracks } from '$lib/stores/savedTracks';
-  import { Heart, X, RotateCcw, Library, Sparkles } from 'lucide-svelte';
+  import { Heart, X, RotateCcw, Sparkles } from 'lucide-svelte';
   import { onMount } from 'svelte';
 
   let { data } = $props();
@@ -69,9 +69,16 @@
       const res = await fetch(`/api/tracks?slug=${data.categorySlug}`);
       if (res.ok) {
         const incoming = await res.json();
-        // Drop anything already in the deck or already judged
-        const seen = new Set([...tracks.map((t) => t.id), ...history.map((h) => h.track.id)]);
-        tracks = [...tracks, ...incoming.filter((t: any) => !seen.has(t.id))];
+        // Drop anything already in the deck or already judged. Keyed on
+        // spotifyId, not `id` — `id` is a fresh Math.random() string minted
+        // per fetch (see toAppTrack in spotify.ts), so the same Spotify track
+        // coming back on a later "load more" call never matched anything
+        // already seen, and kept silently re-entering the deck.
+        const seen = new Set([
+          ...tracks.map((t) => t.spotifyId),
+          ...history.map((h) => h.track.spotifyId)
+        ]);
+        tracks = [...tracks, ...incoming.filter((t: any) => !seen.has(t.spotifyId))];
       }
     } catch (e) {
       console.error('Failed to fetch more tracks', e);
@@ -159,9 +166,12 @@
         in:fade={{ duration: 700 }}
         out:fade={{ duration: 700 }}
       >
+        <!-- Lighthouse's largest element on this page (it paints before the
+             card stack finishes animating in) -->
         <img
           src={front.albumArt}
           alt=""
+          fetchpriority="high"
           class="h-full w-full scale-125 object-cover opacity-25 blur-3xl"
         />
       </div>
@@ -171,21 +181,9 @@
     class="pointer-events-none absolute inset-0 z-0 bg-linear-to-b from-background/85 via-transparent to-background"
   ></div>
 
-  <!-- ── Header ─────────────────────────────────────────── -->
-  <!-- Fixed height (navbar clearance + one chip row) so the deck never shifts
-       when the first save appears -->
-  <header class="relative z-20 flex h-29 shrink-0 items-center justify-center px-4 pt-20">
-    {#if savedCount > 0}
-      <a
-        href="/saved"
-        class="glass flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-3 text-xs font-bold text-white/80 transition-colors hover:bg-white/10"
-        in:scale={{ duration: 220, start: 0.85 }}
-      >
-        <Library size={14} class="text-spotify" />
-        {savedCount} saved
-      </a>
-    {/if}
-  </header>
+  <!-- Just navbar clearance now — the saved-count chip lived here but was
+       redundant with the badge already on the navbar's library icon. -->
+  <div class="relative z-20 h-20 shrink-0"></div>
 
   <!-- ── Deck ───────────────────────────────────────────── -->
   <div

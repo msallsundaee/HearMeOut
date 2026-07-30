@@ -32,11 +32,35 @@
   const year = new Date().getFullYear();
 
   onMount(() => {
-    preloadData('/categories');
+    // Deferred to idle time — firing this immediately competed on the network
+    // with the page's own LCP image (Lighthouse flagged the resulting request
+    // chain), for a prefetch that's only there to make the *next* click faster.
+    // requestIdleCallback isn't in this project's configured DOM lib, and it's
+    // Baseline-supported everywhere but Safari, so a narrow local type for the
+    // feature check is enough here rather than pulling in the types project-wide.
+    type IdleWindow = Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const idleWindow = window as IdleWindow;
+
+    let cancelPreload: () => void;
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(() => preloadData('/categories'));
+      cancelPreload = () => idleWindow.cancelIdleCallback?.(id);
+    } else {
+      const id = window.setTimeout(() => preloadData('/categories'), 200);
+      cancelPreload = () => window.clearTimeout(id);
+    }
+
     const rotate = setInterval(() => {
       hookIndex = (hookIndex + 1) % hooks.length;
     }, 3200);
-    return () => clearInterval(rotate);
+
+    return () => {
+      clearInterval(rotate);
+      cancelPreload();
+    };
   });
 
   /**
@@ -84,7 +108,7 @@
                animation-duration: {spot.dur}s; animation-delay: -{spot.delay}s;"
       >
         <div
-          class="aspect-square w-full overflow-hidden rounded-xl border border-white/10 shadow-2xl shadow-black/80"
+          class="aspect-square w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl shadow-black/80"
           style="transform: rotate({spot.rot}deg);"
         >
           {#if cover}
@@ -134,7 +158,14 @@
         class="absolute top-14 left-0 h-60 w-60 overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black"
       >
         {#if sleeve}
-          <img src={sleeve.url} alt="" class="h-full w-full object-cover opacity-70" />
+          <!-- Lighthouse's largest element on this page — hint the browser to
+               fetch it first rather than after the (lower-priority) collage -->
+          <img
+            src={sleeve.url}
+            alt=""
+            fetchpriority="high"
+            class="h-full w-full object-cover opacity-70"
+          />
         {:else}
           <div class="h-full w-full bg-linear-to-br from-gray-800 to-gray-900"></div>
         {/if}
@@ -284,19 +315,6 @@
         class="grid h-9 w-9 place-items-center rounded-full border border-gray-800 text-gray-500 transition-colors hover:border-primary hover:text-primary"
       >
         <Mail size={16} />
-      </a>
-      <a
-        href="https://github.com/msallsundaee"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Bea Clarise on GitHub"
-        class="grid h-9 w-9 place-items-center rounded-full border border-gray-800 text-gray-500 transition-colors hover:border-primary hover:text-primary"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-          <path
-            d="M12 .5C5.65.5.5 5.66.5 12.02c0 5.09 3.29 9.4 7.86 10.93.57.1.78-.25.78-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.11 3.06.74.8 1.18 1.83 1.18 3.09 0 4.43-2.69 5.4-5.26 5.69.41.36.78 1.07.78 2.16 0 1.56-.01 2.82-.01 3.2 0 .31.2.66.79.55A10.53 10.53 0 0 0 23.5 12C23.5 5.66 18.35.5 12 .5Z"
-          />
-        </svg>
       </a>
     </div>
   </footer>

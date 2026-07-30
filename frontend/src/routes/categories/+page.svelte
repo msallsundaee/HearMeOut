@@ -38,9 +38,14 @@
             class="absolute inset-0 z-10 bg-linear-to-t from-black/90 via-black/30 to-transparent"
           ></div>
           {#if category.image?.url}
+            <!-- First row loads eagerly (i===0 is Lighthouse's LCP element on
+                 this page); everything below the fold lazy-loads instead of
+                 fighting it for bandwidth. -->
             <img
               src={category.image.url}
               alt={category.name}
+              loading={i < 4 ? 'eager' : 'lazy'}
+              fetchpriority={i === 0 ? 'high' : 'auto'}
               class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
             />
           {:else}

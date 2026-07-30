@@ -1,9 +1,17 @@
 import { getTracksWithRetry } from '$lib/server/spotify';
+import { getCategoryBySlug } from '$lib/server/categories';
 
 export async function load({ params, cookies, fetch }) {
     let token = cookies.get('spotify_access_token');
-    
-    let tracks = await getTracksWithRetry(params.slug, token, fetch, cookies);
+
+    const category = await getCategoryBySlug(params.slug, fetch);
+    let tracks = await getTracksWithRetry(
+        params.slug,
+        token,
+        fetch,
+        cookies,
+        category?.spotifyPlaylistId || undefined
+    );
 
     if (tracks.length === 0) {
         tracks = [{

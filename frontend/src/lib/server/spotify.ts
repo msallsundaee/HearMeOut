@@ -97,6 +97,119 @@ export async function fetchAlbumCovers(fetch: typeof globalThis.fetch, limit = 1
     }
 }
 
+/**
+ * NOTE on genre verification: Spotify locked down every piece of genre
+ * metadata for apps on standard (non-extended-quota) access back in Nov 2024 —
+ * `artist.genres` and `album.genres` come back empty, `GET /v1/artists`
+ * (batch) 403s, and `/v1/recommendations` + `/v1/audio-features` both 404.
+ * Confirmed directly against this app's own credentials before writing this
+ * comment. There is no server-side signal left to check a search result's
+ * genre against, so the only real fix is fetchTracksFromPlaylist below: a
+ * category with a curated playlist attached is guaranteed accurate because a
+ * person put those tracks there on purpose, not because we verified them.
+ */
+
+/** Accepts a bare playlist ID, a spotify: URI, or a full open.spotify.com URL. */
+function extractPlaylistId(raw: string): string {
+    const trimmed = raw.trim();
+    const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/);
+    if (uriMatch) return uriMatch[1];
+    const urlMatch = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
+    if (urlMatch) return urlMatch[1];
+    return trimmed;
+}
+
+/**
+ * Track shape shared by both fetch paths (search results and playlist items
+ * have the same track object shape once unwrapped), including the Deezer
+ * preview-URL fallback for the tracks Spotify doesn't provide one for.
+ */
+async function toAppTrack(t: any, fetch: typeof globalThis.fetch) {
+    let previewUrl = t.preview_url || '';
+    const artist = t.artists.map((a: any) => a.name).join(', ');
+
+    if (!previewUrl) {
+        try {
+            const cleanArtist = t.artists[0]?.name || artist;
+            const query = encodeURIComponent(`track:"${t.name}" artist:"${cleanArtist}"`);
+            const deezerRes = await fetch(`https://api.deezer.com/search?q=${query}&limit=1`);
+            if (deezerRes.ok) {
+                const deezerData = await deezerRes.json();
+                if (deezerData.data && deezerData.data.length > 0) {
+                    previewUrl = deezerData.data[0].preview || '';
+                }
+            }
+        } catch (e) {}
+    }
+
+    return {
+        id: Math.random().toString(36).substring(7),
+        spotifyId: t.id,
+        title: t.name,
+        artist,
+        albumArt: t.album?.images?.[0]?.url,
+        previewUrl,
+        duration_ms: t.duration_ms || 0
+    };
+}
+
+/**
+ * Pulls a random window of tracks straight from a category's curated Spotify
+ * playlist — the most reliable source of "this track actually belongs to
+ * this category" there is, since a human (or Spotify editorial) put it there
+ * on purpose. Prefer this over the genre search whenever a category has one
+ * configured.
+ */
+export async function fetchTracksFromPlaylist(
+    rawPlaylistId: string,
+    accessToken: string,
+    fetch: typeof globalThis.fetch
+) {
+    const playlistId = extractPlaylistId(rawPlaylistId);
+    if (!playlistId) return [];
+
+    try {
+        const metaRes = await fetch(
+            `https://api.spotify.com/v1/playlists/${playlistId}?fields=tracks.total`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (metaRes.status === 401) return 401;
+        if (metaRes.status === 429) return 429;
+        if (!metaRes.ok) {
+            console.error(`Spotify playlist lookup failed: ${metaRes.status} (${playlistId})`);
+            return [];
+        }
+
+        const meta = await metaRes.json();
+        const total = meta?.tracks?.total || 0;
+        const offset = total > 10 ? Math.floor(Math.random() * (total - 10)) : 0;
+
+        const tracksRes = await fetch(
+            `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=10&offset=${offset}&fields=items(track(id,name,type,artists(id,name),album(images),duration_ms,preview_url))`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (tracksRes.status === 401) return 401;
+        if (tracksRes.status === 429) return 429;
+        if (!tracksRes.ok) {
+            console.error(`Spotify playlist tracks fetch failed: ${tracksRes.status} (${playlistId})`);
+            return [];
+        }
+
+        const data = await tracksRes.json();
+        // Playlists can contain removed tracks (null) or local files/episodes
+        // that don't carry the fields we need
+        const items = (data.items || [])
+            .map((i: any) => i.track)
+            .filter((t: any) => t && t.type === 'track' && t.id);
+
+        const tracks = await Promise.all(items.map((t: any) => toAppTrack(t, fetch)));
+        return tracks.filter((t) => t.previewUrl);
+    } catch (e) {
+        console.error('Error fetching playlist tracks:', e);
+        return [];
+    }
+}
+
 export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
     let offset = Math.floor(Math.random() * 100);
     const genreMap: Record<string, string> = {
@@ -151,56 +264,46 @@ export async function fetchSpotifyTracks(slug: string, accessToken: string, fetc
     }
     
     const data = JSON.parse(text);
-    let items = data.tracks?.items || [];
+    let items = (data.tracks?.items || []).filter((t: any) => t);
     items = items.sort(() => Math.random() - 0.5);
 
-    const tracksWithPreviews = await Promise.all(items.filter((t: any) => t).map(async (t: any) => {
-        let previewUrl = t.preview_url || '';
-        const artist = t.artists.map((a: any) => a.name).join(', ');
-
-        if (!previewUrl) {
-            try {
-                const cleanArtist = t.artists[0]?.name || artist;
-                const query = encodeURIComponent(`track:"${t.name}" artist:"${cleanArtist}"`);
-                const deezerRes = await fetch(`https://api.deezer.com/search?q=${query}&limit=1`);
-                if (deezerRes.ok) {
-                    const deezerData = await deezerRes.json();
-                    if (deezerData.data && deezerData.data.length > 0) {
-                        previewUrl = deezerData.data[0].preview || '';
-                    }
-                }
-            } catch (e) {}
-        }
-
-        return {
-            id: Math.random().toString(36).substring(7),
-            spotifyId: t.id,
-            title: t.name,
-            artist: artist,
-            albumArt: t.album.images[0]?.url,
-            previewUrl: previewUrl,
-            duration_ms: t.duration_ms || 0
-        };
-    }));
-
-    return tracksWithPreviews.filter(t => t.previewUrl);
+    const tracksWithPreviews = await Promise.all(items.map((t: any) => toAppTrack(t, fetch)));
+    return tracksWithPreviews.filter((t) => t.previewUrl);
 }
 
-export async function getTracksWithRetry(slug: string, token: string, fetch: typeof globalThis.fetch, cookies: any) {
+export async function getTracksWithRetry(
+    slug: string,
+    token: string,
+    fetch: typeof globalThis.fetch,
+    cookies: any,
+    playlistId?: string
+) {
     if (!token) {
         token = await getClientCredentialsToken(fetch);
     }
-    
+
+    // Prefer the category's curated playlist when one is configured — falls
+    // back to the genre search if the playlist is misconfigured or empty
+    // rather than showing nothing.
+    async function attempt() {
+        if (playlistId) {
+            const fromPlaylist = await fetchTracksFromPlaylist(playlistId, token, fetch);
+            if (fromPlaylist === 401 || fromPlaylist === 429) return fromPlaylist;
+            if (Array.isArray(fromPlaylist) && fromPlaylist.length > 0) return fromPlaylist;
+        }
+        return fetchSpotifyTracks(slug, token, fetch);
+    }
+
     if (token) {
-        let result = await fetchSpotifyTracks(slug, token, fetch);
+        let result = await attempt();
         if (result === 401) {
             cookies.delete('spotify_access_token', { path: '/' });
             token = await getClientCredentialsToken(fetch);
             if (token) {
-                result = await fetchSpotifyTracks(slug, token, fetch);
+                result = await attempt();
             }
         }
-        
+
         if (result === 429) {
             return [{
                 id: 'rate-limit',
@@ -211,11 +314,11 @@ export async function getTracksWithRetry(slug: string, token: string, fetch: typ
                 previewUrl: ''
             }];
         }
-        
+
         // Retry logic if no tracks had previews
         let retries = 2;
         while (Array.isArray(result) && result.length === 0 && retries > 0 && token) {
-            result = await fetchSpotifyTracks(slug, token, fetch);
+            result = await attempt();
             if (result === 429) {
                 return [{
                     id: 'rate-limit',
@@ -228,7 +331,7 @@ export async function getTracksWithRetry(slug: string, token: string, fetch: typ
             }
             retries--;
         }
-        
+
         if (Array.isArray(result)) {
             return result;
         }
