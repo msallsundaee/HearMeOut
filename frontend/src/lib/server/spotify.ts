@@ -121,34 +121,27 @@ function extractPlaylistId(raw: string): string {
 
 /**
  * Track shape shared by both fetch paths (search results and playlist items
- * have the same track object shape once unwrapped), including the Deezer
- * preview-URL fallback for the tracks Spotify doesn't provide one for.
+ * have the same track object shape once unwrapped).
+ *
+ * NOTE: this used to also fall back to a Deezer search here, synchronously,
+ * for any track missing Spotify's own preview_url. Measured against a live
+ * search: Spotify now omits preview_url on effectively 100% of results, which
+ * turned that "fallback" into the primary path for every single track on
+ * every single page load — each Deezer round trip took ~0.5-1s, all of them
+ * blocking the page from rendering at all. That's what made navigation feel
+ * slow. Preview URLs are now resolved on-demand per card (see
+ * /api/preview/+server.ts and SwipeCard.svelte) once a card is actually the
+ * one being looked at, instead of for all ~10 cards before anything paints.
  */
-async function toAppTrack(t: any, fetch: typeof globalThis.fetch) {
-    let previewUrl = t.preview_url || '';
+function toAppTrack(t: any) {
     const artist = t.artists.map((a: any) => a.name).join(', ');
-
-    if (!previewUrl) {
-        try {
-            const cleanArtist = t.artists[0]?.name || artist;
-            const query = encodeURIComponent(`track:"${t.name}" artist:"${cleanArtist}"`);
-            const deezerRes = await fetch(`https://api.deezer.com/search?q=${query}&limit=1`);
-            if (deezerRes.ok) {
-                const deezerData = await deezerRes.json();
-                if (deezerData.data && deezerData.data.length > 0) {
-                    previewUrl = deezerData.data[0].preview || '';
-                }
-            }
-        } catch (e) {}
-    }
-
     return {
         id: Math.random().toString(36).substring(7),
         spotifyId: t.id,
         title: t.name,
         artist,
         albumArt: t.album?.images?.[0]?.url,
-        previewUrl,
+        previewUrl: t.preview_url || '',
         duration_ms: t.duration_ms || 0
     };
 }
@@ -202,8 +195,7 @@ export async function fetchTracksFromPlaylist(
             .map((i: any) => i.track)
             .filter((t: any) => t && t.type === 'track' && t.id);
 
-        const tracks = await Promise.all(items.map((t: any) => toAppTrack(t, fetch)));
-        return tracks.filter((t) => t.previewUrl);
+        return items.map(toAppTrack);
     } catch (e) {
         console.error('Error fetching playlist tracks:', e);
         return [];
@@ -267,8 +259,7 @@ export async function fetchSpotifyTracks(slug: string, accessToken: string, fetc
     let items = (data.tracks?.items || []).filter((t: any) => t);
     items = items.sort(() => Math.random() - 0.5);
 
-    const tracksWithPreviews = await Promise.all(items.map((t: any) => toAppTrack(t, fetch)));
-    return tracksWithPreviews.filter((t) => t.previewUrl);
+    return items.map(toAppTrack);
 }
 
 export async function getTracksWithRetry(
@@ -276,7 +267,10 @@ export async function getTracksWithRetry(
     token: string,
     fetch: typeof globalThis.fetch,
     cookies: any,
-    playlistId?: string
+    // Accepts a promise so the caller can kick off the category (Payload)
+    // lookup at the same time as this function's own token fetch below,
+    // instead of the two chaining into two sequential round trips.
+    playlistId?: string | Promise<string | undefined>
 ) {
     if (!token) {
         token = await getClientCredentialsToken(fetch);
@@ -286,8 +280,9 @@ export async function getTracksWithRetry(
     // back to the genre search if the playlist is misconfigured or empty
     // rather than showing nothing.
     async function attempt() {
-        if (playlistId) {
-            const fromPlaylist = await fetchTracksFromPlaylist(playlistId, token, fetch);
+        const resolvedPlaylistId = await playlistId;
+        if (resolvedPlaylistId) {
+            const fromPlaylist = await fetchTracksFromPlaylist(resolvedPlaylistId, token, fetch);
             if (fromPlaylist === 401 || fromPlaylist === 429) return fromPlaylist;
             if (Array.isArray(fromPlaylist) && fromPlaylist.length > 0) return fromPlaylist;
         }

@@ -216,6 +216,9 @@
               exitDir={dir}
               onCommit={commit}
               showHint={showHint && depth === 0}
+              onPreviewResolved={(url) => {
+                tracks = tracks.map((t) => (t.id === track.id ? { ...t, previewUrl: url } : t));
+              }}
             />
           </div>
         {/each}

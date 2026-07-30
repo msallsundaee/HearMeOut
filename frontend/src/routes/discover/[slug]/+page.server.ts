@@ -4,14 +4,13 @@ import { getCategoryBySlug } from '$lib/server/categories';
 export async function load({ params, cookies, fetch }) {
     let token = cookies.get('spotify_access_token');
 
-    const category = await getCategoryBySlug(params.slug, fetch);
-    let tracks = await getTracksWithRetry(
-        params.slug,
-        token,
-        fetch,
-        cookies,
-        category?.spotifyPlaylistId || undefined
+    // Neither of these depends on the other, so start the Payload lookup and
+    // let getTracksWithRetry await it internally (alongside its own Spotify
+    // token fetch) instead of chaining two sequential round trips here.
+    const categoryPlaylistId = getCategoryBySlug(params.slug, fetch).then(
+        (category) => category?.spotifyPlaylistId || undefined
     );
+    let tracks = await getTracksWithRetry(params.slug, token, fetch, cookies, categoryPlaylistId);
 
     if (tracks.length === 0) {
         tracks = [{

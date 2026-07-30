@@ -10,13 +10,17 @@
     /** Fired the moment a gesture crosses the commit threshold */
     onCommit,
     /** Show the one-time drag hint */
-    showHint = false
+    showHint = false,
+    /** Lets the parent patch its copy of this track once a preview resolves,
+        so saving it afterwards carries a working URL too */
+    onPreviewResolved
   }: {
     track: any;
     isActive?: boolean;
     exitDir?: 'left' | 'right' | null;
     onCommit: (dir: 'left' | 'right') => void;
     showHint?: boolean;
+    onPreviewResolved?: (url: string) => void;
   } = $props();
 
   // ── Gesture state ───────────────────────────────────────
@@ -144,6 +148,42 @@
   let isBuffering = $state(false);
   let needsTap = $state(false);
 
+  // Almost no track arrives from Spotify with a preview URL any more, so this
+  // starts 'pending' for nearly every card and gets resolved lazily below —
+  // only once a card is actually the one on top, not for the whole stack.
+  // Reading only the initial value of `track` is intentional: the parent's
+  // {#each ... (track.id)} keying means this component is destroyed and
+  // recreated if the track it's showing ever changes, never reused in place.
+  // svelte-ignore state_referenced_locally
+  let resolvedPreviewUrl = $state(track.previewUrl || '');
+  // svelte-ignore state_referenced_locally
+  let previewState = $state<'ready' | 'pending' | 'none'>(track.previewUrl ? 'ready' : 'pending');
+  let fetchingPreview = false;
+
+  $effect(() => {
+    if (!isActive || previewState !== 'pending' || fetchingPreview) return;
+    fetchingPreview = true;
+    fetch(
+      `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`
+    )
+      .then((r) => (r.ok ? r.json() : { previewUrl: '' }))
+      .then(({ previewUrl }) => {
+        if (previewUrl) {
+          resolvedPreviewUrl = previewUrl;
+          previewState = 'ready';
+          onPreviewResolved?.(previewUrl);
+        } else {
+          previewState = 'none';
+        }
+      })
+      .catch(() => {
+        previewState = 'none';
+      })
+      .finally(() => {
+        fetchingPreview = false;
+      });
+  });
+
   $effect(() => {
     if (!audioEl) return;
 
@@ -263,7 +303,7 @@
     </div>
 
     <!-- ── Preview control: play icon, or a soundwave while playing ─── -->
-    {#if track.previewUrl}
+    {#if previewState === 'ready'}
       <button
         data-no-drag
         aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
@@ -289,7 +329,7 @@
 
       <audio
         bind:this={audioEl}
-        src={track.previewUrl}
+        src={resolvedPreviewUrl}
         preload={isActive ? 'auto' : 'none'}
         onended={() => (isPlaying = false)}
         onwaiting={() => (isBuffering = true)}
@@ -299,6 +339,16 @@
         }}
         oncanplay={() => (isBuffering = false)}
       ></audio>
+    {:else if previewState === 'pending'}
+      <!-- Looking up a preview for this card specifically, not the whole
+           deck — see the fetch in the $effect above -->
+      <div
+        class="absolute right-3.5 bottom-3.5 grid h-11 w-11 place-items-center rounded-full bg-primary/40 text-white shadow-lg shadow-black/60"
+      >
+        <span
+          class="block h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/25 border-t-white"
+        ></span>
+      </div>
     {:else}
       <div
         class="glass-strong pointer-events-none absolute bottom-4 left-4 rounded-full px-3.5 py-2 text-[11px] font-bold tracking-[0.12em] text-white/60 uppercase"
