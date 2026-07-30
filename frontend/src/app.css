@@ -3,41 +3,232 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
-  --color-background: hsl(0, 0%, 100%);
-  --color-foreground: hsl(240, 10%, 3.9%);
-  
-  --color-card: hsl(0, 0%, 100%);
-  --color-card-foreground: hsl(240, 10%, 3.9%);
+  /* ── Type ─────────────────────────────────────────────── */
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Outfit', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  --color-primary: hsl(142.1, 76.2%, 36.3%);
-  --color-primary-foreground: hsl(355.7, 100%, 97.3%);
+  /* ── Surfaces: the original black-on-black ────────────── */
+  --color-background: hsl(0 0% 0%);
+  --color-foreground: hsl(0 0% 98%);
 
-  --color-secondary: hsl(240, 4.8%, 95.9%);
-  --color-secondary-foreground: hsl(240, 5.9%, 10%);
+  --color-card: hsl(240 6% 10%);
+  --color-card-foreground: hsl(0 0% 98%);
 
-  --color-muted: hsl(240, 4.8%, 95.9%);
-  --color-muted-foreground: hsl(240, 3.8%, 46.1%);
+  --color-surface: hsl(240 6% 10%);
+  --color-surface-2: hsl(240 5% 16%);
 
-  --color-accent: hsl(240, 4.8%, 95.9%);
-  --color-accent-foreground: hsl(240, 5.9%, 10%);
+  /* ── Brand: the original Spotify-leaning green ─────────── */
+  --color-primary: hsl(142.1 76.2% 36.3%);
+  --color-primary-foreground: hsl(355.7 100% 97.3%);
+  --color-spotify: #1db954;
 
-  --color-destructive: hsl(0, 84.2%, 60.2%);
-  --color-destructive-foreground: hsl(0, 0%, 98%);
+  /* ── Deck semantics ───────────────────────────────────── */
+  --color-save: #1db954;
+  --color-skip: hsl(0 84.2% 60.2%);
 
-  --color-border: hsl(240, 5.9%, 90%);
-  --color-input: hsl(240, 5.9%, 90%);
-  --color-ring: hsl(142.1, 76.2%, 36.3%);
+  --color-secondary: hsl(240 5% 15%);
+  --color-secondary-foreground: hsl(0 0% 92%);
+  --color-muted: hsl(240 5% 16%);
+  --color-muted-foreground: hsl(218 11% 65%);
+  --color-accent: hsl(240 5% 16%);
+  --color-accent-foreground: hsl(0 0% 92%);
 
-  --radius-lg: 0.5rem;
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  --color-border: hsl(240 6% 18%);
+  --color-input: hsl(240 6% 18%);
+  --color-ring: hsl(142.1 76.2% 36.3%);
+
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+
+  /* ── Motion ───────────────────────────────────────────── */
+  --animate-drift: drift 26s ease-in-out infinite;
+  --animate-drift-slow: drift-alt 34s ease-in-out infinite;
+  --animate-spin-slow: spin 14s linear infinite;
+  --animate-eq: eq 900ms ease-in-out infinite;
+  --animate-pop: pop 340ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+  --animate-rise: rise 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 2.6s linear infinite;
+  --animate-float: float-y 9s ease-in-out infinite;
+  --animate-breathe: breathe 4.5s ease-in-out infinite;
+
+  @keyframes drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    33% {
+      transform: translate3d(6%, -8%, 0) scale(1.12);
+    }
+    66% {
+      transform: translate3d(-5%, 6%, 0) scale(0.94);
+    }
+  }
+
+  @keyframes drift-alt {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1.05);
+    }
+    40% {
+      transform: translate3d(-8%, 7%, 0) scale(0.9);
+    }
+    75% {
+      transform: translate3d(7%, 5%, 0) scale(1.15);
+    }
+  }
+
+  @keyframes eq {
+    0%,
+    100% {
+      transform: scaleY(0.28);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.82);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  /* Album covers bobbing in the landing-page background */
+  @keyframes float-y {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -14px, 0);
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-120%);
+    }
+    to {
+      transform: translateX(220%);
+    }
+  }
+
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.06);
+    }
+  }
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  html {
+    background-color: var(--color-background);
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Kill iOS rubber-banding / pull-to-refresh — this is a swipe app */
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    background: var(--color-primary);
+    color: #fff;
+  }
+
+  /* Never let a dragged album cover trigger the browser's own image drag */
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+}
+
+/* ── Utilities ──────────────────────────────────────────── */
+
+@utility glass {
+  background-color: rgb(255 255 255 / 0.05);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+@utility glass-strong {
+  background-color: rgb(10 8 18 / 0.62);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+/* The original wordmark treatment: white fading into gray */
+@utility text-gradient {
+  background-image: linear-gradient(to right, #ffffff 0%, #9ca3af 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility brand-gradient {
+  background-image: linear-gradient(120deg, var(--color-primary), var(--color-spotify));
+}
+
+/* Fine film grain — kills the flat-template look on large dark areas */
+@utility grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Notch / home-indicator aware spacing */
+@utility pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

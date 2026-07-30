@@ -1,27 +1,28 @@
 <script lang="ts">
-  import { ArrowLeft, User, Flame, Library, LogOut } from 'lucide-svelte';
-  import { fade } from 'svelte/transition';
+  import { ArrowLeft, User, Library, LogOut } from 'lucide-svelte';
+  import { fade, fly } from 'svelte/transition';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  
-  let showBackButton = $derived($page.url.pathname !== '/');
-  
+  import { savedTracks } from '$lib/stores/savedTracks';
+
+  let isHome = $derived($page.url.pathname === '/');
+  let isDiscover = $derived($page.url.pathname.startsWith('/discover/'));
+
   let title = $derived.by(() => {
-    if ($page.url.pathname.startsWith('/discover/')) {
-        const slug = $page.url.pathname.split('/').pop() || '';
-        return slug.replace(/-/g, ' ').toUpperCase();
+    if (isDiscover) {
+      const slug = $page.url.pathname.split('/').pop() || '';
+      return slug.replace(/-/g, ' ');
     }
     return 'HearMeOut';
   });
 
   let showDropdown = $state(false);
 
+  // Fixed hierarchy rather than browser history: discover -> categories -> home.
+  // history.back() was unpredictable on categories — landing there via a fresh
+  // tab/link/refresh (no prior HearMeOut entry) left it with nowhere useful to go.
   function handleBack() {
-    if ($page.url.pathname.startsWith('/discover/')) {
-      goto('/categories');
-    } else {
-      history.back();
-    }
+    goto(isDiscover ? '/categories' : '/');
   }
 
   async function handleLogout() {
@@ -31,94 +32,129 @@
   }
 </script>
 
-<nav class="fixed top-0 left-0 w-full z-50 p-4 pointer-events-none">
-  <div class="relative max-w-5xl mx-auto flex items-center justify-between px-2 md:px-0 h-14">
-    
-    <!-- LEFT ALIGNED -->
-    <div class="flex-1 flex justify-start pointer-events-auto">
-      {#if showBackButton}
-        <button 
-          onclick={handleBack} 
-          class="p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-black transition-colors shadow-lg border border-white/10"
+<nav class="pointer-events-none fixed top-0 left-0 z-50 w-full px-4 pt-safe pb-3">
+  <div class="relative mx-auto flex h-12 max-w-5xl items-center justify-between gap-2">
+    <!-- ── Back ─────────────────────────────────────────── -->
+    <div class="pointer-events-auto flex flex-1 justify-start">
+      {#if !isHome}
+        <button
+          onclick={handleBack}
+          aria-label="Go back"
+          class="glass-strong grid h-11 w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/15 active:scale-90"
+          in:fade={{ duration: 150 }}
         >
-          <ArrowLeft size={24} />
+          <ArrowLeft size={22} />
         </button>
-      {:else}
-        <div class="w-10 h-10"></div> <!-- Placeholder to maintain space if needed, though flex-1 handles it -->
       {/if}
     </div>
-    
-    <!-- CENTER ALIGNED -->
-    <div class="flex-none pointer-events-auto flex justify-center z-10 max-w-[50%] md:max-w-none">
-      <a href="/" class="px-3 md:px-6 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 shadow-xl flex items-center space-x-2 hover:bg-white/5 transition-colors whitespace-nowrap overflow-hidden">
-        {#if title === 'HearMeOut'}
-          <Flame size={20} class="text-primary animate-pulse shrink-0" />
-        {/if}
-        <span class="font-black tracking-wide truncate {title !== 'HearMeOut' ? 'text-white tracking-[0.2em] text-xs md:text-sm uppercase' : 'text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400'}">{title}</span>
-      </a>
-    </div>
 
-    <!-- RIGHT ALIGNED -->
-    <div class="flex-1 flex justify-end pointer-events-auto items-center space-x-3">
-      <a 
-        href="/saved"
-        class="p-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white hover:bg-white hover:text-black transition-colors shadow-lg flex items-center justify-center relative"
-        title="Saved Tracks"
-      >
-        <Library size={24} />
-      </a>
-      
-      <div class="relative pointer-events-auto">
-        {#if $page.data.isLoggedIn}
-          <button 
-            onclick={() => showDropdown = !showDropdown}
-            class="p-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white hover:bg-primary hover:text-black hover:border-primary transition-colors shadow-lg flex items-center justify-center relative {showDropdown ? 'bg-primary text-black' : ''}"
-            title="Profile"
+    <!-- ── Title ────────────────────────────────────────── -->
+    {#if !isHome}
+      <div class="pointer-events-auto flex max-w-[52%] flex-none justify-center">
+        {#if isDiscover}
+          <button
+            onclick={() => goto('/categories')}
+            class="glass-strong flex items-center rounded-full px-5 py-2.5 shadow-xl transition-colors hover:bg-white/10"
+            in:fly={{ y: -8, duration: 220 }}
           >
-            <User size={24} />
+            <!-- Same weight/tracking as the category cards' names, not the old
+                 tiny tracked-out caps — the chip should read like the rest of
+                 the site, not a separate label style. -->
+            <span
+              class="font-display truncate text-sm font-bold tracking-tight text-white capitalize"
+            >
+              {title}
+            </span>
           </button>
-          
+        {:else}
+          <a
+            href="/"
+            class="glass-strong flex items-center rounded-full px-5 py-2.5 shadow-xl transition-colors hover:bg-white/10"
+          >
+            <span class="text-gradient font-display text-base font-black tracking-tight">
+              HearMeOut
+            </span>
+          </a>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- ── Actions ──────────────────────────────────────── -->
+    <div class="pointer-events-auto flex flex-1 items-center justify-end gap-2.5">
+      <a
+        href="/saved"
+        aria-label="Saved tracks"
+        class="glass-strong relative grid h-11 w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/15 active:scale-90"
+      >
+        <Library size={21} />
+        {#if $savedTracks.length > 0}
+          <span
+            class="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-black text-white ring-2 ring-background"
+            in:fade={{ duration: 150 }}
+          >
+            {$savedTracks.length > 99 ? '99+' : $savedTracks.length}
+          </span>
+        {/if}
+      </a>
+
+      <div class="relative">
+        {#if $page.data.isLoggedIn}
+          <button
+            onclick={() => (showDropdown = !showDropdown)}
+            aria-label="Account menu"
+            aria-expanded={showDropdown}
+            class="glass-strong grid h-11 w-11 place-items-center rounded-full transition-colors active:scale-90 {showDropdown
+              ? 'bg-white/20 text-white'
+              : 'text-white hover:bg-white/15'}"
+          >
+            <User size={21} />
+          </button>
+
           {#if showDropdown}
-            <!-- Backdrop to close dropdown -->
-            <button 
-              class="fixed inset-0 w-full h-full cursor-default focus:outline-none" 
-              onclick={() => showDropdown = false}
+            <button
+              class="fixed inset-0 h-full w-full cursor-default focus:outline-none"
+              onclick={() => (showDropdown = false)}
               aria-label="Close menu"
             ></button>
-            
-            <!-- Dropdown Menu -->
-            <div 
-              class="absolute right-0 top-full mt-3 w-48 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden"
-              in:fade={{duration: 150}} 
-              out:fade={{duration: 150}}
+
+            <div
+              class="glass-strong absolute right-0 top-full z-50 mt-3 w-52 overflow-hidden rounded-2xl py-1.5 shadow-2xl"
+              in:fly={{ y: -8, duration: 180 }}
+              out:fade={{ duration: 120 }}
             >
-              <div class="px-4 py-3 border-b border-gray-800">
-                <p class="text-sm text-gray-400 font-medium">Logged in</p>
-              </div>
-              <a 
+              <a
                 href="/profile"
-                class="w-full text-left px-4 py-3 flex items-center text-white hover:bg-white/10 transition-colors font-medium border-b border-gray-800"
-                onclick={() => showDropdown = false}
+                class="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                onclick={() => (showDropdown = false)}
               >
-                <User size={18} class="mr-2" />
-                View Profile
+                <User size={17} />
+                Account
               </a>
-              <button 
-                onclick={handleLogout}
-                class="w-full text-left px-4 py-3 flex items-center text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors font-medium"
+              <a
+                href="/saved"
+                class="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                onclick={() => (showDropdown = false)}
               >
-                <LogOut size={18} class="mr-2" />
-                Log Out
+                <Library size={17} />
+                Your library
+              </a>
+              <div class="my-1 h-px bg-white/10"></div>
+              <button
+                onclick={handleLogout}
+                class="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold text-skip transition-colors hover:bg-skip/10"
+              >
+                <LogOut size={17} />
+                Log out
               </button>
             </div>
           {/if}
         {:else}
-          <a 
+          <a
             href="/login"
-            class="p-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white hover:bg-primary hover:text-black hover:border-primary transition-colors shadow-lg flex items-center justify-center relative"
-            title="Login"
+            aria-label="Sign in"
+            class="glass-strong grid h-11 w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/15 active:scale-90"
           >
-            <User size={24} />
+            <User size={21} />
           </a>
         {/if}
       </div>

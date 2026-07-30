@@ -32,6 +32,71 @@ export async function getClientCredentialsToken(fetch: typeof globalThis.fetch) 
     return null;
 }
 
+let cachedCovers: { url: string; album: string; artist: string }[] = [];
+let coversExpirationTime: number = 0;
+
+/**
+ * Album art only, for the landing page collage — no preview lookups, so it
+ * stays fast. Cached for an hour since the covers don't need to be fresh.
+ */
+export async function fetchAlbumCovers(fetch: typeof globalThis.fetch, limit = 14) {
+    if (cachedCovers.length > 0 && Date.now() < coversExpirationTime) {
+        return cachedCovers;
+    }
+
+    const token = await getClientCredentialsToken(fetch);
+    if (!token) return [];
+
+    try {
+        // Heads up: this app's token caps search at limit=10 — anything higher is
+        // rejected with a misleading "Invalid limit". So fan out across genres
+        // instead of asking one query for more rows.
+        const queries = ['genre:pop', 'genre:"hip hop"', 'genre:rock'];
+
+        const pages = await Promise.all(
+            queries.map(async (q) => {
+                const res = await fetch(
+                    `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (!res.ok) {
+                    console.error(`Spotify cover search failed (${q}): ${res.status}`);
+                    return [];
+                }
+                const data = await res.json();
+                return data.tracks?.items || [];
+            })
+        );
+
+        const seen = new Set<string>();
+        const covers: { url: string; album: string; artist: string }[] = [];
+
+        // Interleave the genres so neighbouring covers in the collage don't all
+        // come from the same one
+        const maxLen = Math.max(...pages.map((p) => p.length), 0);
+        for (let i = 0; i < maxLen && covers.length < limit; i++) {
+            for (const page of pages) {
+                const t = page[i];
+                const url = t?.album?.images?.[0]?.url;
+                const album = t?.album?.name;
+                if (!url || !album || seen.has(album)) continue;
+                seen.add(album);
+                covers.push({ url, album, artist: t.artists?.[0]?.name || '' });
+                if (covers.length >= limit) break;
+            }
+        }
+
+        if (covers.length > 0) {
+            cachedCovers = covers;
+            coversExpirationTime = Date.now() + 60 * 60 * 1000;
+        }
+        return cachedCovers;
+    } catch (e) {
+        console.error('Error fetching album covers:', e);
+        return cachedCovers;
+    }
+}
+
 export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
     let offset = Math.floor(Math.random() * 100);
     const genreMap: Record<string, string> = {

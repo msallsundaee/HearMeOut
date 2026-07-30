@@ -33,7 +33,7 @@
   }
 </script>
 
-<div class="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" in:fade>
+<div class="min-h-dvh bg-background text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" in:fade>
   <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
 
   <div class="w-full max-w-md space-y-8 z-10 bg-gray-900/50 backdrop-blur-md p-8 rounded-3xl border border-gray-800 shadow-2xl">

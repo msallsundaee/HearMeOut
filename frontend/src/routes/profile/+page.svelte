@@ -5,7 +5,7 @@
   let { data } = $props();
 </script>
 
-<div class="min-h-screen bg-black text-white pt-24 pb-32 px-4" in:fade>
+<div class="min-h-dvh bg-background text-white pt-24 pb-32 px-4" in:fade>
   <div class="max-w-2xl mx-auto space-y-8">
     
     <div>

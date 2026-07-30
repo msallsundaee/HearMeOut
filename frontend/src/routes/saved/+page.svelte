@@ -102,7 +102,7 @@
   }
 </script>
 
-<div class="min-h-screen bg-black text-white pt-24 pb-32 px-4" in:fade>
+<div class="min-h-dvh bg-background text-white pt-24 pb-32 px-4" in:fade>
   <div class="max-w-4xl mx-auto">
     <div class="flex items-center justify-between mb-8">
       <div>
@@ -151,7 +151,7 @@
             </button>
 
             <!-- Album Art -->
-            <img src={track.albumArt} alt={track.title} class="w-16 h-16 rounded-xl object-cover shadow-md shrink-0" />
+            <img src={track.albumArt} alt={track.title} class="w-16 h-16 rounded-md object-cover shadow-md shrink-0" />
 
             <!-- Track Info -->
             <div class="flex-1 min-w-0">
