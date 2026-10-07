@@ -1,7 +1,7 @@
 import { getAllCategories } from '$lib/server/categories';
-import { siteConfig, getCanonicalUrl } from '$lib/config/site';
+import { siteConfig } from '$lib/config/site';
 
-export async function GET({ fetch, setHeaders }) {
+export async function GET({ url, fetch, setHeaders }) {
 	setHeaders({
 		'content-type': 'application/xml; charset=utf-8',
 		'cache-control': 'public, max-age=3600, s-maxage=14400, stale-while-revalidate=86400'
@@ -9,6 +9,9 @@ export async function GET({ fetch, setHeaders }) {
 
 	const categories = await getAllCategories(fetch);
 	const today = new Date().toISOString().split('T')[0];
+	const baseUrl = url.origin && !url.origin.includes('localhost') ? url.origin : siteConfig.url;
+	const buildLoc = (path: string) =>
+		`${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') ? path : '/' + path}`;
 
 	// Static pages with their priority and change frequency
 	const staticPages = [
@@ -19,7 +22,7 @@ export async function GET({ fetch, setHeaders }) {
 	const staticUrls = staticPages
 		.map(
 			(page) => `  <url>
-    <loc>${getCanonicalUrl(page.path)}</loc>
+    <loc>${buildLoc(page.path)}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
@@ -30,7 +33,7 @@ export async function GET({ fetch, setHeaders }) {
 	// Dynamic category discovery pages with Google Image sitemap tags
 	const categoryUrls = categories
 		.map((cat) => {
-			const loc = getCanonicalUrl(`/discover/${cat.slug}`);
+			const loc = buildLoc(`/discover/${cat.slug}`);
 			const imageXml = cat.image?.url
 				? `\n    <image:image>
       <image:loc>${cat.image.url}</image:loc>

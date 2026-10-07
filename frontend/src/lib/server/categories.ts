@@ -123,6 +123,10 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
 		return allCategoriesCache;
 	}
 
+	if (!env.PAYLOAD_API_URL) {
+		return FALLBACK_CATEGORIES;
+	}
+
 	try {
 		const res = await fetch(`${env.PAYLOAD_API_URL}/categories`, {
 			signal: AbortSignal.timeout(1500)
@@ -163,6 +167,10 @@ export async function getCategoryBySlug(slug: string, fetch: typeof globalThis.f
 	const cached = slugCache.get(slug);
 	if (cached && Date.now() < cached.expires) {
 		return cached.doc;
+	}
+
+	if (!env.PAYLOAD_API_URL) {
+		return null;
 	}
 
 	try {

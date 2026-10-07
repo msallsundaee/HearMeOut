@@ -6,7 +6,7 @@ export const siteConfig = {
 	tagline: 'Swipe & Discover New Music',
 	description:
 		'Stop scrolling endless playlists. Discover fresh music by swiping right on 30-second audio previews, and seamlessly sync your favorite tracks to Spotify.',
-	url: env.PUBLIC_SITE_URL || 'https://hearmeout.app',
+	url: env.PUBLIC_SITE_URL || 'https://hearme-out.vercel.app',
 	ogImage: '/og-image.jpg',
 	creator: 'Bea Clarise',
 	twitterHandle: '@HearMeOutApp',

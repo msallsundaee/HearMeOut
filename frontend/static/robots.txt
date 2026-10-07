@@ -1,4 +1,4 @@
-# Robots.txt for HearMeOut (https://hearmeout.app)
+# Robots.txt for HearMeOut (https://hearme-out.vercel.app)
 User-agent: *
 Allow: /
 Allow: /categories
@@ -15,4 +15,4 @@ Disallow: /register
 Crawl-delay: 1
 
 # XML Sitemap
-Sitemap: https://hearmeout.app/sitemap.xml
+Sitemap: https://hearme-out.vercel.app/sitemap.xml
