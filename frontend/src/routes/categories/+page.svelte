@@ -2,6 +2,8 @@
   import { fade } from 'svelte/transition';
   import { Play } from 'lucide-svelte';
   import Aurora from '$lib/components/Aurora.svelte';
+  import SEO from '$lib/components/SEO.svelte';
+  import { getCanonicalUrl } from '$lib/config/site';
 
   let { data } = $props();
 
@@ -12,11 +14,38 @@
     'linear-gradient(140deg,#334155,#0f172a)',
     'linear-gradient(140deg,#15803d,#1e293b)'
   ];
+
+  let collectionSchema = $derived({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Music Categories & Genres — HearMeOut',
+    description:
+      'Explore music genres from Pop to Rock, Indie to Hip-Hop. Swipe and preview songs in your favorite category.',
+    url: getCanonicalUrl('/categories'),
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: data.categories.map((c: any, index: number) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: getCanonicalUrl(`/discover/${c.slug}`),
+        name: c.name
+      }))
+    }
+  });
+
+  const breadcrumbs = [
+    { name: 'Home', url: '/' },
+    { name: 'Categories', url: '/categories' }
+  ];
 </script>
 
-<svelte:head>
-  <title>Categories — HearMeOut</title>
-</svelte:head>
+<SEO
+  title="Music Categories & Genres"
+  description="Explore music crates across Pop, Hip-Hop, Indie, Rock, EDM, and more. Preview 30-second clips and swipe to save your favorite songs."
+  pathname="/categories"
+  schema={collectionSchema}
+  breadcrumbs={breadcrumbs}
+/>
 
 <div class="relative min-h-dvh overflow-hidden bg-black text-white" in:fade>
   <Aurora intensity={0.45} />

@@ -4,6 +4,7 @@
   import { preloadData } from '$app/navigation';
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
+  import SEO from '$lib/components/SEO.svelte';
 
   let { data } = $props();
 
@@ -83,11 +84,52 @@
   // Cover art for the vinyl sleeve, plus the rest for the floating collage
   let sleeve = $derived(data.covers?.[0] ?? null);
   let collage = $derived(data.covers?.slice(1) ?? []);
+
+  const homeSchemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: 'HearMeOut',
+      url: 'https://hearmeout.app',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'All',
+      browserRequirements: 'Requires JavaScript. Requires HTML5.',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD'
+      },
+      description:
+        'Swipe right on your next favourite song. Discover music by genre, preview 30s audio clips instantly, and export keepers directly to Spotify.',
+      featureList: [
+        '30-second audio previews',
+        'Swipe left or right music discovery',
+        'Direct export to Spotify playlist',
+        'Curated genre crates'
+      ],
+      author: {
+        '@type': 'Person',
+        name: 'Bea Clarise'
+      }
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'HearMeOut',
+      url: 'https://hearmeout.app',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: 'https://hearmeout.app/discover/{search_term_string}',
+        'query-input': 'required name=search_term_string'
+      }
+    }
+  ];
 </script>
 
-<svelte:head>
-  <title>HearMeOut — discover new music with a swipe</title>
-</svelte:head>
+<SEO
+  pathname="/"
+  schema={homeSchemas}
+/>
 
 <div class="relative flex min-h-dvh flex-col overflow-hidden bg-black text-white">
   <!-- Background gradient decorations -->

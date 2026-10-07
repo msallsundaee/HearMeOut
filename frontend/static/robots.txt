@@ -1,3 +1,18 @@
-# allow crawling everything by default
+# Robots.txt for HearMeOut (https://hearmeout.app)
 User-agent: *
-Disallow:
+Allow: /
+Allow: /categories
+Allow: /discover/
+
+# Block crawling of internal API routes, user private libraries & session paths
+Disallow: /api/
+Disallow: /saved
+Disallow: /profile
+Disallow: /login
+Disallow: /register
+
+# Friendly crawler rate limiting
+Crawl-delay: 1
+
+# XML Sitemap
+Sitemap: https://hearmeout.app/sitemap.xml

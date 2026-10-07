@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { User, Lock, Mail, Loader2 } from 'lucide-svelte';
+  import SEO from '$lib/components/SEO.svelte';
   
   let name = $state('');
   let email = $state('');
@@ -41,12 +42,19 @@
   }
 </script>
 
+<SEO
+  title="Create Account"
+  description="Join HearMeOut to sync your saved tracks and export music directly to Spotify."
+  pathname="/register"
+  noindex={true}
+/>
+
 <div class="min-h-dvh bg-background text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" in:fade>
   <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#1DB954]/20 rounded-full blur-3xl pointer-events-none"></div>
 
   <div class="w-full max-w-md space-y-8 z-10 bg-gray-900/50 backdrop-blur-md p-8 rounded-3xl border border-gray-800 shadow-2xl">
     <div class="text-center">
-      <h2 class="text-3xl font-black text-white">Create Account</h2>
+      <h1 class="text-3xl font-black text-white">Create Account</h1>
       <p class="text-gray-400 mt-2">Join HearMeOut to sync your saved tracks across all devices.</p>
     </div>
 

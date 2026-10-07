@@ -1,0 +1,18 @@
+{
+  "name": "HearMeOut — Music Discovery",
+  "short_name": "HearMeOut",
+  "description": "Swipe right on your next favourite song. Preview 30-second audio clips and export directly to Spotify.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment"]
+}

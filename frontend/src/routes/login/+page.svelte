@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { User, Lock, Loader2 } from 'lucide-svelte';
+  import SEO from '$lib/components/SEO.svelte';
   
   let email = $state('');
   let password = $state('');
@@ -33,12 +34,19 @@
   }
 </script>
 
+<SEO
+  title="Sign In"
+  description="Sign in to your HearMeOut account to access your saved music and export to Spotify."
+  pathname="/login"
+  noindex={true}
+/>
+
 <div class="min-h-dvh bg-background text-white flex flex-col items-center justify-center p-4 relative overflow-hidden" in:fade>
   <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
 
   <div class="w-full max-w-md space-y-8 z-10 bg-gray-900/50 backdrop-blur-md p-8 rounded-3xl border border-gray-800 shadow-2xl">
     <div class="text-center">
-      <h2 class="text-3xl font-black text-white">Welcome Back</h2>
+      <h1 class="text-3xl font-black text-white">Welcome Back</h1>
       <p class="text-gray-400 mt-2">Sign in to save your discovered tracks permanently.</p>
     </div>
 

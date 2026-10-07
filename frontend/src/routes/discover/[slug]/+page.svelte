@@ -5,6 +5,8 @@
   import { savedTracks } from '$lib/stores/savedTracks';
   import { Heart, X, RotateCcw, Sparkles } from 'lucide-svelte';
   import { onMount } from 'svelte';
+  import SEO from '$lib/components/SEO.svelte';
+  import { getCanonicalUrl } from '$lib/config/site';
 
   let { data } = $props();
 
@@ -145,11 +147,51 @@
       undo();
     }
   }
+
+  let formattedCategory = $derived(
+    categoryName
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  );
+
+  let playlistSchema = $derived({
+    '@context': 'https://schema.org',
+    '@type': 'MusicPlaylist',
+    name: `${formattedCategory} Music Discovery`,
+    numTracks: tracks.length,
+    genre: formattedCategory,
+    url: getCanonicalUrl(`/discover/${data.categorySlug}`),
+    description: `Preview and discover trending ${formattedCategory} songs with 30-second audio clips on HearMeOut.`,
+    track: tracks.slice(0, 10).map((t: any) => ({
+      '@type': 'MusicRecording',
+      name: t.title,
+      byArtist: {
+        '@type': 'MusicGroup',
+        name: t.artist
+      },
+      image: t.albumArt
+    }))
+  });
+
+  let breadcrumbs = $derived([
+    { name: 'Home', url: '/' },
+    { name: 'Categories', url: '/categories' },
+    { name: formattedCategory, url: `/discover/${data.categorySlug}` }
+  ]);
 </script>
 
-<svelte:head>
-  <title>{categoryName} — HearMeOut</title>
-</svelte:head>
+<SEO
+  title={`Discover ${formattedCategory} Songs`}
+  description={`Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips and save the best tracks straight to Spotify.`}
+  pathname={`/discover/${data.categorySlug}`}
+  ogType="music.playlist"
+  image={front?.albumArt || undefined}
+  imageAlt={`${formattedCategory} trending music on HearMeOut`}
+  schema={playlistSchema}
+  breadcrumbs={breadcrumbs}
+  audioPreviewUrl={front?.previewUrl || undefined}
+/>
 
 <svelte:window onkeydown={handleKeydown} bind:innerWidth={winW} />
 
@@ -157,6 +199,7 @@
   class="relative flex h-dvh flex-col overflow-hidden bg-background text-white select-none"
   in:fade={{ duration: 200 }}
 >
+  <h1 class="sr-only">Discover {formattedCategory} Songs — Swipe &amp; Preview on HearMeOut</h1>
   <!-- ── Ambient backdrop, tinted by the front cover ────── -->
   <Aurora intensity={0.45} />
   {#if front}

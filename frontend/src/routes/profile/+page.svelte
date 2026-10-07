@@ -1,9 +1,17 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { User, Mail, Music, ChevronRight, Library, CheckCircle } from 'lucide-svelte';
+  import SEO from '$lib/components/SEO.svelte';
 
   let { data } = $props();
 </script>
+
+<SEO
+  title="Account Settings"
+  description="Manage your HearMeOut profile, Spotify integrations, and preferences."
+  pathname="/profile"
+  noindex={true}
+/>
 
 <div class="min-h-dvh bg-background text-white pt-24 pb-32 px-4" in:fade>
   <div class="max-w-2xl mx-auto space-y-8">

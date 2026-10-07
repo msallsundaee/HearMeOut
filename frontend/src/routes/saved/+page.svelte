@@ -2,6 +2,7 @@
   import { fade, slide } from 'svelte/transition';
   import { savedTracks } from '$lib/stores/savedTracks';
   import { Music, Check, ArrowRight, Trash2, Library } from 'lucide-svelte';
+  import SEO from '$lib/components/SEO.svelte';
 
   let { data } = $props();
   
@@ -101,6 +102,13 @@
     }
   }
 </script>
+
+<SEO
+  title="My Saved Tracks"
+  description="Review your saved tracks and export them directly to your Spotify playlists."
+  pathname="/saved"
+  noindex={true}
+/>
 
 <div class="min-h-dvh bg-background text-white pt-24 pb-32 px-4" in:fade>
   <div class="max-w-4xl mx-auto">
