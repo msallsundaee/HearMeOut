@@ -34,8 +34,8 @@
   // its whole size is driven by width. So to guarantee it fits a short screen we
   // measure the space the deck actually got and derive the width from that —
   // CSS aspect-ratio can't do this, since clamping one axis just breaks the ratio.
-  // Reserves two full lines of title plus the artist, so nothing has to truncate
-  const TITLE_RATIO = 1.32;
+  // Reserves two full lines of title, artist, and the audio preview control
+  const TITLE_RATIO = 1.42;
   let winW = $state(0);
   let deckAreaH = $state(0);
 

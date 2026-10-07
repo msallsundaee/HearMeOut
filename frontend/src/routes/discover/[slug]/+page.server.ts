@@ -1,12 +1,17 @@
 import { getTracksWithRetry } from '$lib/server/spotify';
 import { getCategoryBySlug } from '$lib/server/categories';
 
-export async function load({ params, cookies, fetch }) {
+export async function load({ params, cookies, fetch, setHeaders }) {
     let token = cookies.get('spotify_access_token');
 
-    // Neither of these depends on the other, so start the Payload lookup and
-    // let getTracksWithRetry await it internally (alongside its own Spotify
-    // token fetch) instead of chaining two sequential round trips here.
+    // If guest user without user-specific token, cache at edge briefly to avoid hammering Spotify
+    if (!token) {
+        setHeaders({
+            'cache-control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300'
+        });
+    }
+
+    // Start Payload lookup without blocking token acquisition
     const categoryPlaylistId = getCategoryBySlug(params.slug, fetch).then(
         (category) => category?.spotifyPlaylistId || undefined
     );

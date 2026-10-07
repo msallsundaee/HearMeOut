@@ -209,6 +209,13 @@
       isPlaying = false;
       isBuffering = false;
     }
+
+    return () => {
+      if (audioEl) {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      }
+    };
   });
 
   function togglePlay() {
@@ -259,12 +266,14 @@
 
   <!-- ── Artwork ─────────────────────────────────────────── -->
   <div
-    class="relative aspect-square w-full shrink-0 overflow-hidden rounded-xl border border-white/10 bg-surface shadow-[0_28px_60px_-18px_rgba(0,0,0,0.95)]"
+    class="relative aspect-square w-full shrink-0 overflow-hidden rounded-xl border border-white/1 bg-surface shadow-[0_28px_60px_-18px_rgba(0,0,0,0.95)]"
   >
     <img
       src={track.albumArt}
       alt="{track.title} by {track.artist}"
       draggable="false"
+      loading={isFront ? 'eager' : 'lazy'}
+      fetchpriority={isFront ? 'high' : 'auto'}
       class="pointer-events-none h-full w-full object-cover"
     />
 
@@ -302,61 +311,6 @@
       <span class="font-display text-xl font-black tracking-widest">SKIP</span>
     </div>
 
-    <!-- ── Preview control: play icon, or a soundwave while playing ─── -->
-    {#if previewState === 'ready'}
-      <button
-        data-no-drag
-        aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-        class="absolute right-3.5 bottom-3.5 grid h-11 w-11 place-items-center rounded-full bg-primary text-white shadow-lg shadow-black/60 transition-transform hover:bg-primary/90 active:scale-90 {needsTap
-          ? 'animate-pulse'
-          : ''}"
-        onpointerdown={(e) => e.stopPropagation()}
-        onclick={(e) => {
-          e.stopPropagation();
-          togglePlay();
-        }}
-      >
-        {#if isBuffering}
-          <span
-            class="block h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/25 border-t-white"
-          ></span>
-        {:else if isPlaying}
-          <Equalizer bars={4} playing class="h-3.5 w-3.5" color="#fff" />
-        {:else}
-          <Play size={19} fill="currentColor" class="translate-x-px" />
-        {/if}
-      </button>
-
-      <audio
-        bind:this={audioEl}
-        src={resolvedPreviewUrl}
-        preload={isActive ? 'auto' : 'none'}
-        onended={() => (isPlaying = false)}
-        onwaiting={() => (isBuffering = true)}
-        onplaying={() => {
-          isBuffering = false;
-          isPlaying = true;
-        }}
-        oncanplay={() => (isBuffering = false)}
-      ></audio>
-    {:else if previewState === 'pending'}
-      <!-- Looking up a preview for this card specifically, not the whole
-           deck — see the fetch in the $effect above -->
-      <div
-        class="absolute right-3.5 bottom-3.5 grid h-11 w-11 place-items-center rounded-full bg-primary/40 text-white shadow-lg shadow-black/60"
-      >
-        <span
-          class="block h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/25 border-t-white"
-        ></span>
-      </div>
-    {:else}
-      <div
-        class="glass-strong pointer-events-none absolute bottom-4 left-4 rounded-full px-3.5 py-2 text-[11px] font-bold tracking-[0.12em] text-white/60 uppercase"
-      >
-        No preview
-      </div>
-    {/if}
-
     <!-- One-time hint for first-timers -->
     {#if showHint && !hintDismissed && isActive && !dragging}
       <div
@@ -370,11 +324,11 @@
     {/if}
   </div>
 
-  <!-- ── Track meta ──────────────────────────────────────── -->
+  <!-- ── Track meta & Preview control ────────────────────── -->
   <!-- Nothing here truncates: long titles step down a size instead, so a
        "… - 2019 Remaster" suffix still wraps onto a second line in full. -->
   <div
-    class="pointer-events-none w-full px-1 pt-4 text-center transition-opacity duration-300 {isFront
+    class="pointer-events-none w-full px-1 pt-10 text-center transition-opacity duration-300 {isFront
       ? 'opacity-100'
       : 'opacity-0'}"
   >
@@ -386,5 +340,61 @@
     <p class="mt-0.5 text-sm font-medium break-words text-white/55 sm:text-base">
       {track.artist}
     </p>
+
+    <!-- ── Preview control: borderless floating soundwaves under artist name ─── -->
+    <div class="mt-2 flex items-center justify-center">
+      {#if previewState === 'ready'}
+        <button
+          data-no-drag
+          aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
+          class="pointer-events-auto group relative flex items-center justify-center gap-2.5 px-3 py-1.5 transition-all duration-300 hover:scale-110 active:scale-90 cursor-pointer {needsTap
+            ? 'animate-pulse'
+            : ''}"
+          onpointerdown={(e) => e.stopPropagation()}
+          onclick={(e) => {
+            e.stopPropagation();
+            togglePlay();
+          }}
+        >
+          {#if isBuffering}
+            <span
+              class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white "
+            ></span>
+          {:else if isPlaying}
+            <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+          {:else}
+            <div class="flex items-center gap-2 opacity-65 transition-opacity duration-300 group-hover:opacity-100">
+              <Play size={15} fill="currentColor" class="text-white translate-x-px" />
+              <Equalizer bars={8} playing={false} class="h-5 w-12 sm:h-5.5 sm:w-14" color="#ffffff" />
+            </div>
+          {/if}
+        </button>
+
+        <audio
+          bind:this={audioEl}
+          src={resolvedPreviewUrl}
+          preload={isActive ? 'auto' : 'none'}
+          onended={() => (isPlaying = false)}
+          onwaiting={() => (isBuffering = true)}
+          onplaying={() => {
+            isBuffering = false;
+            isPlaying = true;
+          }}
+          oncanplay={() => (isBuffering = false)}
+        ></audio>
+      {:else if previewState === 'pending'}
+        <div class="flex items-center justify-center p-2">
+          <span
+            class="block h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/70"
+          ></span>
+        </div>
+      {:else}
+        <span
+          class="text-[11px] font-medium tracking-[0.14em] text-white/35 uppercase select-none"
+        >
+          No preview
+        </span>
+      {/if}
+    </div>
   </div>
 </div>

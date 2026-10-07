@@ -153,6 +153,8 @@ function toAppTrack(t: any) {
  * on purpose. Prefer this over the genre search whenever a category has one
  * configured.
  */
+const playlistTotalsCache = new Map<string, { total: number; expires: number }>();
+
 export async function fetchTracksFromPlaylist(
     rawPlaylistId: string,
     accessToken: string,
@@ -162,24 +164,38 @@ export async function fetchTracksFromPlaylist(
     if (!playlistId) return [];
 
     try {
-        const metaRes = await fetch(
-            `https://api.spotify.com/v1/playlists/${playlistId}?fields=tracks.total`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (metaRes.status === 401) return 401;
-        if (metaRes.status === 429) return 429;
-        if (!metaRes.ok) {
-            console.error(`Spotify playlist lookup failed: ${metaRes.status} (${playlistId})`);
-            return [];
+        let total = 0;
+        const cachedMeta = playlistTotalsCache.get(playlistId);
+        if (cachedMeta && Date.now() < cachedMeta.expires) {
+            total = cachedMeta.total;
+        } else {
+            const metaRes = await fetch(
+                `https://api.spotify.com/v1/playlists/${playlistId}?fields=tracks.total`,
+                {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    signal: AbortSignal.timeout(3000)
+                }
+            );
+            if (metaRes.status === 401) return 401;
+            if (metaRes.status === 429) return 429;
+            if (!metaRes.ok) {
+                console.error(`Spotify playlist lookup failed: ${metaRes.status} (${playlistId})`);
+                return [];
+            }
+
+            const meta = await metaRes.json();
+            total = meta?.tracks?.total || 0;
+            playlistTotalsCache.set(playlistId, { total, expires: Date.now() + 2 * 60 * 60 * 1000 });
         }
 
-        const meta = await metaRes.json();
-        const total = meta?.tracks?.total || 0;
         const offset = total > 10 ? Math.floor(Math.random() * (total - 10)) : 0;
 
         const tracksRes = await fetch(
             `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=10&offset=${offset}&fields=items(track(id,name,type,artists(id,name),album(images),duration_ms,preview_url))`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
+            {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                signal: AbortSignal.timeout(4000)
+            }
         );
         if (tracksRes.status === 401) return 401;
         if (tracksRes.status === 429) return 429;
@@ -264,7 +280,7 @@ export async function fetchSpotifyTracks(slug: string, accessToken: string, fetc
 
 export async function getTracksWithRetry(
     slug: string,
-    token: string,
+    token: string | null | undefined,
     fetch: typeof globalThis.fetch,
     cookies: any,
     // Accepts a promise so the caller can kick off the category (Payload)
@@ -272,29 +288,31 @@ export async function getTracksWithRetry(
     // instead of the two chaining into two sequential round trips.
     playlistId?: string | Promise<string | undefined>
 ) {
-    if (!token) {
-        token = await getClientCredentialsToken(fetch);
+    let activeToken = token;
+    if (!activeToken) {
+        activeToken = await getClientCredentialsToken(fetch);
     }
 
     // Prefer the category's curated playlist when one is configured — falls
     // back to the genre search if the playlist is misconfigured or empty
     // rather than showing nothing.
     async function attempt() {
+        if (!activeToken) return [];
         const resolvedPlaylistId = await playlistId;
         if (resolvedPlaylistId) {
-            const fromPlaylist = await fetchTracksFromPlaylist(resolvedPlaylistId, token, fetch);
+            const fromPlaylist = await fetchTracksFromPlaylist(resolvedPlaylistId, activeToken, fetch);
             if (fromPlaylist === 401 || fromPlaylist === 429) return fromPlaylist;
             if (Array.isArray(fromPlaylist) && fromPlaylist.length > 0) return fromPlaylist;
         }
-        return fetchSpotifyTracks(slug, token, fetch);
+        return fetchSpotifyTracks(slug, activeToken, fetch);
     }
 
-    if (token) {
+    if (activeToken) {
         let result = await attempt();
         if (result === 401) {
             cookies.delete('spotify_access_token', { path: '/' });
-            token = await getClientCredentialsToken(fetch);
-            if (token) {
+            activeToken = await getClientCredentialsToken(fetch);
+            if (activeToken) {
                 result = await attempt();
             }
         }
@@ -310,21 +328,9 @@ export async function getTracksWithRetry(
             }];
         }
 
-        // Retry logic if no tracks had previews
-        let retries = 2;
-        while (Array.isArray(result) && result.length === 0 && retries > 0 && token) {
+        // Quick single retry if first attempt was empty
+        if (Array.isArray(result) && result.length === 0 && token) {
             result = await attempt();
-            if (result === 429) {
-                return [{
-                    id: 'rate-limit',
-                    spotifyId: 'rate-limit',
-                    title: 'Spotify Rate Limit Hit 🛑',
-                    artist: 'You swiped too fast! Wait a minute and refresh.',
-                    albumArt: 'https://images.unsplash.com/photo-1559583109-3e7968136c99?q=80&w=800&auto=format&fit=crop',
-                    previewUrl: ''
-                }];
-            }
-            retries--;
         }
 
         if (Array.isArray(result)) {

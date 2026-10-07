@@ -1,20 +1,28 @@
 <script lang="ts">
-  /** Animated soundwave bars. Freezes at a low resting height when `playing` is false. */
-  let { bars = 4, playing = true, class: klass = 'h-4 w-5', color = 'currentColor' } = $props();
+  /** Animated soundwave bars. Natural organic waveform when paused, fluid equalizer animations when playing. */
+  let {
+    bars = 8,
+    playing = true,
+    class: klass = 'h-6 w-14',
+    color = '#ffffff',
+    glow = true
+  } = $props();
 
-  // Staggered so the bars never move in lockstep
-  const delays = [0, 220, 90, 340, 160, 400, 60];
-  const speeds = [900, 720, 1040, 820, 960, 700, 880];
+  // Natural organic heights for resting waveform (like a balanced studio soundwave)
+  const restingHeights = [0.3, 0.55, 0.85, 1, 0.9, 0.7, 0.45, 0.28, 0.6];
+  const delays = [0, 180, 80, 260, 120, 320, 200, 100, 240];
+  const speeds = [750, 920, 680, 840, 780, 890, 720, 860, 790];
 </script>
 
-<!-- The caller's class sets the size — no h-full/w-full here, or it would fight it -->
-<div class="flex items-center justify-center gap-0.75 {klass}" aria-hidden="true">
+<div class="flex items-center justify-center gap-1 sm:gap-1.25 {klass}" aria-hidden="true">
   {#each Array(bars) as _, i}
     <span
-      class="h-full min-w-0.5 flex-1 rounded-full {playing ? 'animate-eq' : ''}"
-      style="background: {color}; animation-delay: {delays[i % delays.length]}ms;
+      class="h-full min-w-0.25 flex-1 rounded-full transition-transform duration-300 {playing ? 'animate-eq' : ''}"
+      style="background: {color};
+             animation-delay: {delays[i % delays.length]}ms;
              animation-duration: {speeds[i % speeds.length]}ms;
-             {playing ? '' : 'transform: scaleY(0.22);'}"
+             transform: scaleY({playing ? 1 : restingHeights[i % restingHeights.length]});
+             {glow && playing ? `box-shadow: 0 0 12px ${color}10, 0 0 4px ${color};` : ''}"
     ></span>
   {/each}
 </div>
