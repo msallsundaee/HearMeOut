@@ -1,6 +1,15 @@
 import { getAllCategories } from '$lib/server/categories';
 import { siteConfig } from '$lib/config/site';
 
+function xmlEscape(str: string): string {
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
+}
+
 export async function GET({ url, fetch, setHeaders }) {
 	setHeaders({
 		'content-type': 'application/xml; charset=utf-8',
@@ -11,7 +20,7 @@ export async function GET({ url, fetch, setHeaders }) {
 	const today = new Date().toISOString().split('T')[0];
 	const baseUrl = url.origin && !url.origin.includes('localhost') ? url.origin : siteConfig.url;
 	const buildLoc = (path: string) =>
-		`${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') ? path : '/' + path}`;
+		xmlEscape(`${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') ? path : '/' + path}`);
 
 	// Static pages with their priority and change frequency
 	const staticPages = [
@@ -30,29 +39,20 @@ export async function GET({ url, fetch, setHeaders }) {
 		)
 		.join('\n');
 
-	// Dynamic category discovery pages with Google Image sitemap tags
+	// Dynamic category discovery pages
 	const categoryUrls = categories
-		.map((cat) => {
-			const loc = buildLoc(`/discover/${cat.slug}`);
-			const imageXml = cat.image?.url
-				? `\n    <image:image>
-      <image:loc>${cat.image.url}</image:loc>
-      <image:title>${cat.name} Music Discovery</image:title>
-    </image:image>`
-				: '';
-
-			return `  <url>
-    <loc>${loc}</loc>
+		.map(
+			(cat) => `  <url>
+    <loc>${buildLoc(`/discover/${cat.slug}`)}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>${imageXml}
-  </url>`;
-		})
+    <priority>0.8</priority>
+  </url>`
+		)
 		.join('\n');
 
 	const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${staticUrls}
 ${categoryUrls}
 </urlset>`;
