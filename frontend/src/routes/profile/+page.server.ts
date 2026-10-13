@@ -5,25 +5,23 @@ export async function load({ cookies, fetch }) {
     const payloadToken = cookies.get('payload_token');
     const spotifyToken = cookies.get('spotify_access_token');
     
-    if (!payloadToken) {
-        throw redirect(302, '/login');
-    }
-
-    // Fetch user details from Payload CMS
+    // Fetch user details from Payload CMS if authenticated
     let user = null;
-    try {
-        const res = await fetch(`${env.PAYLOAD_API_URL}/users/me`, {
-            headers: {
-                'Authorization': `JWT ${payloadToken}`
-            },
-            signal: AbortSignal.timeout(1500)
-        });
-        const data = await res.json();
-        if (data && data.user) {
-            user = data.user;
+    if (payloadToken) {
+        try {
+            const res = await fetch(`${env.PAYLOAD_API_URL}/users/me`, {
+                headers: {
+                    'Authorization': `JWT ${payloadToken}`
+                },
+                signal: AbortSignal.timeout(1500)
+            });
+            const data = await res.json();
+            if (data && data.user) {
+                user = data.user;
+            }
+        } catch (e) {
+            console.error('Error fetching user', e);
         }
-    } catch (e) {
-        console.error('Error fetching user', e);
     }
 
     return {

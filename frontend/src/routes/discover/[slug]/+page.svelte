@@ -145,6 +145,9 @@
     } else if (e.key === 'z' || e.key === 'Backspace') {
       e.preventDefault();
       undo();
+    } else if (e.code === 'Space' || e.key === ' ') {
+      // Prevent browser from scrolling down the page
+      e.preventDefault();
     }
   }
 
@@ -364,7 +367,8 @@
       </div>
 
       <p class="text-[10px] font-semibold tracking-[0.22em] text-white/30 uppercase">
-        <span>swipe left to pass or right to save </span>
+        <span class="hidden sm:inline">← Pass &nbsp;·&nbsp; Space to Play &nbsp;·&nbsp; Save →</span>
+        <span class="sm:hidden">swipe left to pass or right to save</span>
       </p>
     </div>
   {/if}

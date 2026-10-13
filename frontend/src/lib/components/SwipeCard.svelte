@@ -158,6 +158,15 @@
   let isPlaying = $state(false);
   let isBuffering = $state(false);
   let needsTap = $state(false);
+  let currentTime = $state(0);
+  let duration = $state(30);
+
+  function formatTime(s: number) {
+    if (!s || isNaN(s) || !isFinite(s)) return '0:00';
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
 
   // svelte-ignore state_referenced_locally
   const cacheKey = `${track.title}::${track.artist}`.toLowerCase();
@@ -220,6 +229,7 @@
     } else {
       audioEl.pause();
       audioEl.currentTime = 0;
+      currentTime = 0;
       isPlaying = false;
       isBuffering = false;
     }
@@ -228,11 +238,12 @@
       if (audioEl) {
         audioEl.pause();
         audioEl.currentTime = 0;
+        currentTime = 0;
       }
     };
   });
 
-  function togglePlay() {
+  export function togglePlay() {
     if (!audioEl) return;
     if (isPlaying) {
       audioEl.pause();
@@ -245,6 +256,17 @@
         },
         () => (isPlaying = false)
       );
+    }
+  }
+
+  function handleWindowKeydown(e: KeyboardEvent) {
+    if (!isActive || exitDir) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'k') {
+      e.preventDefault();
+      togglePlay();
     }
   }
 
@@ -278,7 +300,7 @@
 
 </script>
 
-<svelte:window onresize={measure} />
+<svelte:window onresize={measure} onkeydown={handleWindowKeydown} />
 
 <div
   bind:this={cardEl}
@@ -323,6 +345,19 @@
     <div
       class="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-black/75 to-transparent"
     ></div>
+
+    <!-- Glowing bottom audio progress bar when preview is active -->
+    {#if previewState === 'ready' && isFront}
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-1 bg-white/20 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div
+          class="h-full bg-primary shadow-[0_0_8px_var(--color-primary)] transition-[width] duration-150 ease-linear"
+          style="width: {duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0}%;"
+        ></div>
+      </div>
+    {/if}
 
     <!-- Directional colour wash, tracking the gesture -->
     <div
@@ -389,7 +424,7 @@
         <button
           data-no-drag
           aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-          class="pointer-events-auto group relative flex items-center justify-center gap-2.5 px-3 py-1.5 transition-all duration-300 hover:scale-110 active:scale-90 cursor-pointer {needsTap
+          class="pointer-events-auto group relative flex items-center justify-center gap-2.5 px-3 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer {needsTap
             ? 'animate-pulse'
             : ''}"
           onpointerdown={(e) => e.stopPropagation()}
@@ -403,13 +438,22 @@
               class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white "
             ></span>
           {:else if isPlaying}
-            <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+            <div class="flex items-center gap-2.5">
+              <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+              <span class="text-xs font-mono tabular-nums text-white/70">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
           {:else}
             <div class="flex items-center gap-2 opacity-80 transition-opacity duration-300 group-hover:opacity-100">
               <Play size={15} fill="currentColor" class="text-white translate-x-px" />
               <Equalizer bars={8} playing={false} class="h-5 w-12 sm:h-5.5 sm:w-14" color="#ffffff" />
               {#if needsTap}
                 <span class="text-[11px] font-semibold text-primary ml-0.5">Tap to play</span>
+              {:else if currentTime > 0}
+                <span class="text-xs font-mono tabular-nums text-white/50 ml-0.5">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
               {/if}
             </div>
           {/if}
@@ -419,7 +463,19 @@
           bind:this={audioEl}
           src={resolvedPreviewUrl}
           preload={isActive || shouldPrefetch ? 'auto' : 'none'}
-          onended={() => (isPlaying = false)}
+          ontimeupdate={(e) => {
+            currentTime = (e.currentTarget as HTMLAudioElement).currentTime;
+          }}
+          onloadedmetadata={(e) => {
+            duration = (e.currentTarget as HTMLAudioElement).duration || 30;
+          }}
+          ondurationchange={(e) => {
+            duration = (e.currentTarget as HTMLAudioElement).duration || 30;
+          }}
+          onended={() => {
+            isPlaying = false;
+            currentTime = 0;
+          }}
           onwaiting={() => (isBuffering = true)}
           onplaying={() => {
             isBuffering = false;

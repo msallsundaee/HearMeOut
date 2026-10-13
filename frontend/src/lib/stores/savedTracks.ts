@@ -13,30 +13,53 @@ export interface Track {
 
 const STORAGE_KEY = 'hearmeout_saved_tracks';
 
+function readStorage(): Track[] {
+    if (!browser) return [];
+    try {
+        const item = window.localStorage.getItem(STORAGE_KEY);
+        return item ? JSON.parse(item) : [];
+    } catch (e) {
+        console.warn('Failed to load saved tracks from localStorage:', e);
+        return [];
+    }
+}
+
+function writeStorage(tracks: Track[]) {
+    if (!browser) return;
+    try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+    } catch (e) {
+        console.warn('Failed to persist saved tracks to localStorage:', e);
+    }
+}
+
 function createSavedTracksStore() {
-    const initialValue: Track[] = browser ? JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]') : [];
-    
+    const initialValue: Track[] = readStorage();
     const { subscribe, set, update } = writable<Track[]>(initialValue);
 
     return {
         subscribe,
-        saveTrack: (track: Track) => update(tracks => {
-            if (tracks.find(t => t.spotifyId === track.spotifyId)) return tracks; // Don't duplicate
+        saveTrack: (track: Track) => update((tracks) => {
+            if (tracks.some((t) => t.spotifyId === track.spotifyId)) return tracks;
             const newTracks = [track, ...tracks];
-            if (browser) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newTracks));
+            writeStorage(newTracks);
             return newTracks;
         }),
-        removeTrack: (spotifyId: string) => update(tracks => {
-            const newTracks = tracks.filter(t => t.spotifyId !== spotifyId);
-            if (browser) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newTracks));
+        removeTrack: (spotifyId: string) => update((tracks) => {
+            const newTracks = tracks.filter((t) => t.spotifyId !== spotifyId);
+            writeStorage(newTracks);
             return newTracks;
         }),
         clear: () => {
-            if (browser) window.localStorage.removeItem(STORAGE_KEY);
+            if (browser) {
+                try {
+                    window.localStorage.removeItem(STORAGE_KEY);
+                } catch {}
+            }
             set([]);
         },
         setTracks: (tracks: Track[]) => {
-            if (browser) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+            writeStorage(tracks);
             set(tracks);
         }
     };
