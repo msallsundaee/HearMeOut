@@ -118,7 +118,7 @@
       tracks = tracks.filter((t) => t.id !== track.id);
       history = [{ track, dir }, ...history].slice(0, 20);
       exiting = null;
-      if (tracks.length <= 3) fetchMoreTracks();
+      if (tracks.length <= 4) fetchMoreTracks();
     }, EXIT_MS);
   }
 
@@ -256,6 +256,7 @@
             <SwipeCard
               {track}
               isActive={depth === 0}
+              shouldPrefetch={depth <= 1}
               exitDir={dir}
               onCommit={commit}
               showHint={showHint && depth === 0}

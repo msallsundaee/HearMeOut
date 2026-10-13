@@ -1,3 +1,8 @@
+<script module lang="ts">
+  // Shared client-side in-memory cache across card instances
+  const clientPreviewCache = new Map<string, string>();
+</script>
+
 <script lang="ts">
   import { Play, Heart, X, Hand } from 'lucide-svelte';
   import Equalizer from '$lib/components/Equalizer.svelte';
@@ -5,6 +10,7 @@
   let {
     track,
     isActive = false,
+    shouldPrefetch = false,
     /** Set by the parent to fling the card off-screen: 'left' | 'right' | null */
     exitDir = null,
     /** Fired the moment a gesture crosses the commit threshold */
@@ -17,6 +23,7 @@
   }: {
     track: any;
     isActive?: boolean;
+    shouldPrefetch?: boolean;
     exitDir?: 'left' | 'right' | null;
     onCommit: (dir: 'left' | 'right') => void;
     showHint?: boolean;
@@ -148,26 +155,28 @@
   let isBuffering = $state(false);
   let needsTap = $state(false);
 
-  // Almost no track arrives from Spotify with a preview URL any more, so this
-  // starts 'pending' for nearly every card and gets resolved lazily below —
-  // only once a card is actually the one on top, not for the whole stack.
-  // Reading only the initial value of `track` is intentional: the parent's
-  // {#each ... (track.id)} keying means this component is destroyed and
-  // recreated if the track it's showing ever changes, never reused in place.
   // svelte-ignore state_referenced_locally
-  let resolvedPreviewUrl = $state(track.previewUrl || '');
+  const cacheKey = `${track.title}::${track.artist}`.toLowerCase();
   // svelte-ignore state_referenced_locally
-  let previewState = $state<'ready' | 'pending' | 'none'>(track.previewUrl ? 'ready' : 'pending');
+  const cachedUrl = track.previewUrl || clientPreviewCache.get(cacheKey) || '';
+  // svelte-ignore state_referenced_locally
+  let resolvedPreviewUrl = $state(cachedUrl);
+  // svelte-ignore state_referenced_locally
+  let previewState = $state<'ready' | 'pending' | 'none'>(
+    cachedUrl ? 'ready' : clientPreviewCache.has(cacheKey) ? 'none' : 'pending'
+  );
   let fetchingPreview = false;
 
   $effect(() => {
-    if (!isActive || previewState !== 'pending' || fetchingPreview) return;
+    const shouldFetch = isActive || shouldPrefetch;
+    if (!shouldFetch || previewState !== 'pending' || fetchingPreview) return;
     fetchingPreview = true;
     fetch(
       `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`
     )
       .then((r) => (r.ok ? r.json() : { previewUrl: '' }))
       .then(({ previewUrl }) => {
+        clientPreviewCache.set(cacheKey, previewUrl || '');
         if (previewUrl) {
           resolvedPreviewUrl = previewUrl;
           previewState = 'ready';
@@ -188,19 +197,20 @@
     if (!audioEl) return;
 
     if (isActive && !exitDir) {
-      isBuffering = true;
+      if (audioEl.readyState < 3) {
+        isBuffering = true;
+      }
       audioEl
         .play()
         .then(() => {
           isPlaying = true;
           needsTap = false;
+          isBuffering = false;
         })
         .catch(() => {
-          // Autoplay blocked until the user interacts — nudge them instead
+          // Autoplay blocked until user interacts — nudge them instead
           isPlaying = false;
           needsTap = true;
-        })
-        .finally(() => {
           isBuffering = false;
         });
     } else {
@@ -373,7 +383,7 @@
         <audio
           bind:this={audioEl}
           src={resolvedPreviewUrl}
-          preload={isActive ? 'auto' : 'none'}
+          preload={isActive || shouldPrefetch ? 'auto' : 'none'}
           onended={() => (isPlaying = false)}
           onwaiting={() => (isBuffering = true)}
           onplaying={() => {

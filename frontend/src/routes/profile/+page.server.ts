@@ -15,7 +15,8 @@ export async function load({ cookies, fetch }) {
         const res = await fetch(`${env.PAYLOAD_API_URL}/users/me`, {
             headers: {
                 'Authorization': `JWT ${payloadToken}`
-            }
+            },
+            signal: AbortSignal.timeout(1500)
         });
         const data = await res.json();
         if (data && data.user) {

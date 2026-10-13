@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for hits
+const MISS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 mins for misses
 const cache = new Map<string, { url: string; expires: number }>();
 
 /**
@@ -29,7 +30,7 @@ function getPrimaryArtist(raw: string): string {
 async function searchDeezer(query: string, fetch: typeof globalThis.fetch): Promise<string> {
     try {
         const url = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=1`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(1400) });
         if (res.ok) {
             const data = await res.json();
             const preview = data?.data?.[0]?.preview;
@@ -38,7 +39,7 @@ async function searchDeezer(query: string, fetch: typeof globalThis.fetch): Prom
             }
         }
     } catch (e) {
-        console.error(`Deezer preview search error for "${query}":`, e);
+        // Silently continue to fallback
     }
     return '';
 }
@@ -49,7 +50,7 @@ async function searchDeezer(query: string, fetch: typeof globalThis.fetch): Prom
 async function searchITunes(query: string, fetch: typeof globalThis.fetch): Promise<string> {
     try {
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(1800) });
         if (res.ok) {
             const data = await res.json();
             const preview = data?.results?.[0]?.previewUrl;
@@ -58,7 +59,7 @@ async function searchITunes(query: string, fetch: typeof globalThis.fetch): Prom
             }
         }
     } catch (e) {
-        console.error(`iTunes preview search error for "${query}":`, e);
+        // Silently continue
     }
     return '';
 }
@@ -69,12 +70,16 @@ async function searchITunes(query: string, fetch: typeof globalThis.fetch): Prom
  * Since Spotify completely deprecated `preview_url` in late 2024 for all standard/dev API keys,
  * this endpoint resolves previews on demand using Deezer, with an automatic iTunes fallback.
  */
-export async function GET({ url, fetch }) {
+export async function GET({ url, fetch, setHeaders }) {
     const rawTitle = url.searchParams.get('title') || '';
     const rawArtist = url.searchParams.get('artist') || '';
     if (!rawTitle || !rawArtist) {
         return json({ previewUrl: '' });
     }
+
+    setHeaders({
+        'cache-control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800'
+    });
 
     const key = `${rawTitle}::${rawArtist}`.toLowerCase();
     const cached = cache.get(key);
@@ -85,25 +90,21 @@ export async function GET({ url, fetch }) {
     const cleaned = cleanTitle(rawTitle);
     const primaryArtist = getPrimaryArtist(rawArtist);
 
-    // Progressive search queries: from cleanest to broader
     const primaryQuery = `${cleaned || rawTitle} ${primaryArtist}`;
     const fallbackQuery = `${rawTitle} ${primaryArtist}`;
+    const queries = fallbackQuery !== primaryQuery ? [primaryQuery, fallbackQuery] : [primaryQuery];
 
-    let previewUrl = await searchDeezer(primaryQuery, fetch);
+    // Search Deezer in parallel across primary and fallback variations
+    const deezerResults = await Promise.all(queries.map((q) => searchDeezer(q, fetch)));
+    let previewUrl = deezerResults.find(Boolean) || '';
 
-    if (!previewUrl && fallbackQuery !== primaryQuery) {
-        previewUrl = await searchDeezer(fallbackQuery, fetch);
-    }
-
-    // If Deezer returned no preview, fall back to Apple iTunes Search API
+    // If Deezer returned no preview, try Apple iTunes Search API in parallel
     if (!previewUrl) {
-        previewUrl = await searchITunes(primaryQuery, fetch);
+        const iTunesResults = await Promise.all(queries.map((q) => searchITunes(q, fetch)));
+        previewUrl = iTunesResults.find(Boolean) || '';
     }
 
-    if (!previewUrl && fallbackQuery !== primaryQuery) {
-        previewUrl = await searchITunes(fallbackQuery, fetch);
-    }
-
-    cache.set(key, { url: previewUrl, expires: Date.now() + CACHE_TTL_MS });
+    const ttl = previewUrl ? CACHE_TTL_MS : MISS_CACHE_TTL_MS;
+    cache.set(key, { url: previewUrl, expires: Date.now() + ttl });
     return json({ previewUrl });
 }

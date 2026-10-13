@@ -18,6 +18,9 @@
 		     actually reuse for the real request. -->
 		<link rel="preconnect" href="https://i.scdn.co" />
 		<link rel="preconnect" href="https://images.unsplash.com" />
+		<link rel="dns-prefetch" href="https://api.deezer.com" />
+		<link rel="dns-prefetch" href="https://cdns-preview-d.dzcdn.net" />
+		<link rel="dns-prefetch" href="https://audio-ssl.itunes.apple.com" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
@@ -26,7 +29,7 @@
 		/>
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover">
+	<body data-sveltekit-preload-data="hover" data-sveltekit-preload-code="hover">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

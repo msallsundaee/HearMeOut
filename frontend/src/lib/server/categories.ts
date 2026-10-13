@@ -129,7 +129,7 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
 
 	try {
 		const res = await fetch(`${env.PAYLOAD_API_URL}/categories`, {
-			signal: AbortSignal.timeout(1500)
+			signal: AbortSignal.timeout(700)
 		});
 		if (res.ok) {
 			const data = await res.json();
@@ -149,7 +149,9 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
 			}
 		}
 	} catch {
-		// Fallback gracefully without blocking
+		// Backend offline/slow: cache fallback for 2 mins so subsequent clicks are instantaneous
+		allCategoriesCache = FALLBACK_CATEGORIES;
+		allCategoriesExpires = Date.now() + 2 * 60 * 1000;
 	}
 
 	return FALLBACK_CATEGORIES;
@@ -160,8 +162,8 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
  * spotifyPlaylistId, so discovery can pull from a curated playlist instead
  * of a loose genre-keyword search.
  *
- * Uses an AbortSignal timeout (1.5s) so slow or sleeping backend cold-starts
- * never stall the user's page load.
+ * Uses a tight AbortSignal timeout (700ms) with failure caching so slow or sleeping
+ * backend cold-starts never stall navigation.
  */
 export async function getCategoryBySlug(slug: string, fetch: typeof globalThis.fetch) {
 	const cached = slugCache.get(slug);
@@ -176,15 +178,19 @@ export async function getCategoryBySlug(slug: string, fetch: typeof globalThis.f
 	try {
 		const url = `${env.PAYLOAD_API_URL}/categories?where[slug][equals]=${encodeURIComponent(slug)}&limit=1`;
 		const res = await fetch(url, {
-			signal: AbortSignal.timeout(1500)
+			signal: AbortSignal.timeout(700)
 		});
-		if (!res.ok) return null;
+		if (!res.ok) {
+			slugCache.set(slug, { doc: null, expires: Date.now() + 2 * 60 * 1000 });
+			return null;
+		}
 		const data = await res.json();
 		const doc = data.docs?.[0] ?? null;
 		slugCache.set(slug, { doc, expires: Date.now() + CACHE_TTL_MS });
 		return doc;
 	} catch {
-		// Silently fallback without blocking SSR if Payload is asleep or down
+		// Silently fallback without blocking SSR and cache for 2 mins to prevent repetitive stalls
+		slugCache.set(slug, { doc: null, expires: Date.now() + 2 * 60 * 1000 });
 		return null;
 	}
 }
