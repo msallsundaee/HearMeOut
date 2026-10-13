@@ -163,19 +163,47 @@
 
   let pageTitle = $derived(
     isExplore
-      ? 'Explore Music & Fresh Discoveries'
+      ? 'Explore Music & Fresh Discoveries — Songs for Stories & Reels'
       : data.categorySlug === 'opm'
-        ? 'OPM Hits — Discover Filipino Music & Songs'
-        : `Discover ${formattedCategory} Songs`
+        ? 'OPM Hits — Filipino Songs for Stories, Reels & Playlists'
+        : data.categorySlug === 'lo-fi'
+          ? 'Lo-Fi Beats — Aesthetic Chill Songs for Vlogs & Stories'
+          : data.categorySlug === 'chill'
+            ? 'Chill & Relax — Aesthetic Songs for Photo Dumps & Stories'
+            : data.categorySlug === 'workout'
+              ? 'Workout Music — High Energy Beats for Gym Stories & Reels'
+              : data.categorySlug === 'indie'
+                ? 'Indie Vibes — Aesthetic Alternative Songs for Reels & Stories'
+                : `${formattedCategory} Songs — 30s Clips for Stories & Playlists`
   );
 
   let pageDescription = $derived(
     isExplore
-      ? 'Explore an eclectic mix of trending hits, indie discoveries, global sounds, and hidden gems. Preview 30-second clips and swipe to save songs to Spotify.'
+      ? 'Explore an eclectic mix of trending hits, aesthetic tracks, and hidden gems. Preview 30-second clips to find the perfect soundtrack for your Instagram stories, reels, or photo dumps, and swipe to save straight to Spotify.'
       : data.categorySlug === 'opm'
-        ? 'Preview and swipe through trending OPM hits and classic Filipino songs. Listen to 30-second clips and save the best Pinoy music straight to Spotify.'
-        : `Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips and save the best tracks straight to Spotify.`
+        ? 'Preview and swipe through trending OPM hits and classic Filipino songs. Audition 30-second clips for your stories, travel reels, and posts, and save the best Pinoy music to Spotify.'
+        : data.categorySlug === 'lo-fi'
+          ? 'Audition aesthetic lo-fi beats and cozy instrumentals. Find the perfect 30-second background music for study vlogs, aesthetic stories, and chill reels.'
+          : data.categorySlug === 'chill'
+            ? 'Discover relaxed, dreamy vibes for your photo dumps, sunset clips, and aesthetic stories. Listen to 30-second previews and swipe to save.'
+            : data.categorySlug === 'workout'
+              ? 'Find high-energy workout beats and gym anthems for your fitness reels, PR stories, and training playlists. Swipe 30-second previews to save.'
+              : data.categorySlug === 'indie'
+                ? 'Preview fresh indie discoveries and aesthetic alternative tracks. Find the perfect vibe for your Instagram reels and stories.'
+                : `Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips to find the right sound for your stories and playlists, and save straight to Spotify.`
   );
+
+  let categoryKeywords = $derived([
+    `${formattedCategory.toLowerCase()} songs`,
+    `songs for instagram stories ${formattedCategory.toLowerCase()}`,
+    `songs for reels`,
+    `photo dump songs`,
+    `music for stories`,
+    `30 second music preview`,
+    `${formattedCategory.toLowerCase()} playlist`,
+    'discover new songs',
+    'swipe music'
+  ]);
 
   let playlistSchema = $derived({
     '@context': 'https://schema.org',
@@ -215,6 +243,7 @@
   title={pageTitle}
   description={pageDescription}
   pathname={`/discover/${data.categorySlug}`}
+  keywords={categoryKeywords}
   ogType="music.playlist"
   image={front?.albumArt || undefined}
   imageAlt={`${formattedCategory} music on HearMeOut`}

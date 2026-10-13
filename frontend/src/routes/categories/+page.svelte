@@ -27,9 +27,9 @@
   let collectionSchema = $derived({
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Music Categories & Genres — HearMeOut',
+    name: 'Browse Music Crates & Vibes — Songs for Stories & Reels | HearMeOut',
     description:
-      'Explore music genres from Pop to Rock, Indie to Hip-Hop. Swipe and preview songs in your favorite category.',
+      'Explore music crates across Pop, Indie, Lo-Fi, OPM, Chill, and Workout. Audition 30-second clips to find the perfect songs for your Instagram stories, TikToks, and Spotify playlists.',
     url: getCanonicalUrl('/categories'),
     mainEntity: {
       '@type': 'ItemList',
@@ -46,12 +46,25 @@
     { name: 'Home', url: '/' },
     { name: 'Categories', url: '/categories' }
   ];
+
+  const categoryKeywords = [
+    'songs for instagram stories',
+    'music for reels',
+    'photo dump songs',
+    'aesthetic music genres',
+    'lo-fi songs for stories',
+    'indie songs for reels',
+    'opm songs for stories',
+    'music crates',
+    'swipe music preview'
+  ];
 </script>
 
 <SEO
-  title="Music Categories & Genres"
-  description="Explore music crates across Pop, Hip-Hop, Indie, Rock, EDM, and more. Preview 30-second clips and swipe to save your favorite songs."
+  title="Browse Music Crates & Vibes — Songs for Stories, Reels & Playlists"
+  description="Explore music crates across Pop, Indie, Lo-Fi, OPM, Chill, and Workout. Audition 30-second clips to find the perfect songs for your Instagram stories, TikToks, and Spotify playlists."
   pathname="/categories"
+  keywords={categoryKeywords}
   schema={collectionSchema}
   breadcrumbs={breadcrumbs}
 />

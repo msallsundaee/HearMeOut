@@ -25,7 +25,8 @@ export async function GET({ url, fetch, setHeaders }) {
 	// Static pages with their priority and change frequency
 	const staticPages = [
 		{ path: '/', priority: '1.0', changefreq: 'daily' },
-		{ path: '/categories', priority: '0.9', changefreq: 'daily' }
+		{ path: '/categories', priority: '0.9', changefreq: 'daily' },
+		{ path: '/discover/explore', priority: '0.9', changefreq: 'daily' }
 	];
 
 	const staticUrls = staticPages
@@ -41,6 +42,7 @@ export async function GET({ url, fetch, setHeaders }) {
 
 	// Dynamic category discovery pages
 	const categoryUrls = categories
+		.filter((cat) => cat.slug !== 'explore')
 		.map(
 			(cat) => `  <url>
     <loc>${buildLoc(`/discover/${cat.slug}`)}</loc>
