@@ -1,6 +1,62 @@
 import type { Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+import { dev } from '$app/environment';
 
 export const handle: Handle = async ({ event, resolve }) => {
+    // Transparently auto-refresh Spotify access token when expired but refresh token exists
+    const accessToken = event.cookies.get('spotify_access_token');
+    const refreshToken = event.cookies.get('spotify_refresh_token');
+
+    if (!accessToken && refreshToken && env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET) {
+        try {
+            const basicAuth = Buffer.from(
+                `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
+            ).toString('base64');
+
+            const tokenRes = await event.fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${basicAuth}`
+                },
+                body: new URLSearchParams({
+                    grant_type: 'refresh_token',
+                    refresh_token: refreshToken
+                }),
+                signal: AbortSignal.timeout(3000)
+            });
+
+            if (tokenRes.ok) {
+                const tokenData = await tokenRes.json();
+                if (tokenData.access_token) {
+                    event.cookies.set('spotify_access_token', tokenData.access_token, {
+                        path: '/',
+                        httpOnly: true,
+                        secure: !dev,
+                        sameSite: 'lax',
+                        maxAge: tokenData.expires_in || 3600
+                    });
+
+                    if (tokenData.refresh_token) {
+                        event.cookies.set('spotify_refresh_token', tokenData.refresh_token, {
+                            path: '/',
+                            httpOnly: true,
+                            secure: !dev,
+                            sameSite: 'lax',
+                            maxAge: 60 * 60 * 24 * 30 // 30 days
+                        });
+                    }
+                }
+            } else if (tokenRes.status === 400 || tokenRes.status === 401) {
+                // Refresh token expired or revoked in Spotify dashboard
+                event.cookies.delete('spotify_access_token', { path: '/' });
+                event.cookies.delete('spotify_refresh_token', { path: '/' });
+            }
+        } catch (e) {
+            console.error('Spotify token auto-refresh error:', e);
+        }
+    }
+
     const response = await resolve(event);
 
     // Enforce strict security headers

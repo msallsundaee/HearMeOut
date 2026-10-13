@@ -5,6 +5,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import SEO from '$lib/components/SEO.svelte';
+  import { siteConfig, getCanonicalUrl } from '$lib/config/site';
 
   let { data } = $props();
 
@@ -90,7 +91,7 @@
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       name: 'HearMeOut',
-      url: 'https://hearmeout.app',
+      url: siteConfig.url,
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'All',
       browserRequirements: 'Requires JavaScript. Requires HTML5.',
@@ -116,10 +117,10 @@
       '@context': 'https://schema.org',
       '@type': 'WebSite',
       name: 'HearMeOut',
-      url: 'https://hearmeout.app',
+      url: siteConfig.url,
       potentialAction: {
         '@type': 'SearchAction',
-        target: 'https://hearmeout.app/discover/{search_term_string}',
+        target: `${getCanonicalUrl('/discover')}/{search_term_string}`,
         'query-input': 'required name=search_term_string'
       }
     }
@@ -150,7 +151,7 @@
                animation-duration: {spot.dur}s; animation-delay: -{spot.delay}s;"
       >
         <div
-          class="aspect-square w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl shadow-black/80"
+          class="aspect-square w-full overflow-hidden rounded-md border border-white/10 shadow-2xl shadow-black/80"
           style="transform: rotate({spot.rot}deg);"
         >
           {#if cover}

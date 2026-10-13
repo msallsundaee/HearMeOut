@@ -121,6 +121,10 @@
     if (dragged || (flicked && agrees && Math.abs(dx) > 24)) {
       onCommit(dx > 0 ? 'right' : 'left');
     } else {
+      const isTap = Math.abs(dx) < 6 && Math.abs(dy) < 6;
+      if (isTap && isFront && previewState === 'ready') {
+        togglePlay();
+      }
       dx = 0;
       dy = 0;
       liftAtRelease = 0;
@@ -241,6 +245,34 @@
         },
         () => (isPlaying = false)
       );
+    }
+  }
+
+  let hasRetriedAudio = false;
+  function handleAudioError() {
+    isBuffering = false;
+    isPlaying = false;
+    if (!hasRetriedAudio && track?.title && track?.artist) {
+      hasRetriedAudio = true;
+      fetch(
+        `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&fresh=1`
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.previewUrl) {
+            resolvedPreviewUrl = data.previewUrl;
+            if (audioEl) {
+              audioEl.src = data.previewUrl;
+              audioEl.load();
+              if (isActive && !exitDir) {
+                audioEl.play().catch(() => {
+                  needsTap = true;
+                });
+              }
+            }
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -373,9 +405,12 @@
           {:else if isPlaying}
             <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
           {:else}
-            <div class="flex items-center gap-2 opacity-65 transition-opacity duration-300 group-hover:opacity-100">
+            <div class="flex items-center gap-2 opacity-80 transition-opacity duration-300 group-hover:opacity-100">
               <Play size={15} fill="currentColor" class="text-white translate-x-px" />
               <Equalizer bars={8} playing={false} class="h-5 w-12 sm:h-5.5 sm:w-14" color="#ffffff" />
+              {#if needsTap}
+                <span class="text-[11px] font-semibold text-primary ml-0.5">Tap to play</span>
+              {/if}
             </div>
           {/if}
         </button>
@@ -389,8 +424,10 @@
           onplaying={() => {
             isBuffering = false;
             isPlaying = true;
+            needsTap = false;
           }}
           oncanplay={() => (isBuffering = false)}
+          onerror={handleAudioError}
         ></audio>
       {:else if previewState === 'pending'}
         <div class="flex items-center justify-center p-2">

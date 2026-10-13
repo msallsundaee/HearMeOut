@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, slide } from 'svelte/transition';
   import { savedTracks } from '$lib/stores/savedTracks';
-  import { Music, Check, ArrowRight, Trash2, Library } from 'lucide-svelte';
+  import { Music, Check, ArrowRight, Trash2, Library, Play, Pause, Loader2 } from 'lucide-svelte';
   import SEO from '$lib/components/SEO.svelte';
 
   let { data } = $props();
@@ -11,13 +11,29 @@
   let isExporting = $state(false);
   let exportSuccess = $state(false);
   let customPlaylistName = $state('HearMeOut Discover');
+  let initializedSelection = false;
 
-  // Initialize all tracks as selected when the store loads
+  // Audio preview state
+  let audioEl = $state<HTMLAudioElement | null>(null);
+  let playingSpotifyId = $state<string | null>(null);
+  let loadingAudioId = $state<string | null>(null);
+  const previewCache = new Map<string, string>();
+
+  // Initialize all tracks as selected only once when the store loads
   $effect(() => {
-    if (selectedTracks.size === 0 && $savedTracks.length > 0 && !exportSuccess) {
-      selectedTracks = new Set($savedTracks.map(t => t.spotifyId));
+    if (!initializedSelection && $savedTracks.length > 0 && !exportSuccess) {
+      initializedSelection = true;
+      selectedTracks = new Set($savedTracks.map((t) => t.spotifyId));
     }
   });
+
+  function selectAll() {
+    selectedTracks = new Set($savedTracks.map((t) => t.spotifyId));
+  }
+
+  function deselectAll() {
+    selectedTracks = new Set();
+  }
 
   function toggleSelection(spotifyId: string) {
     if (selectedTracks.has(spotifyId)) {
@@ -25,14 +41,63 @@
     } else {
       selectedTracks.add(spotifyId);
     }
-    selectedTracks = new Set(selectedTracks); // trigger reactivity
+    selectedTracks = new Set(selectedTracks);
   }
 
   function removeTrack(spotifyId: string) {
+    if (playingSpotifyId === spotifyId) {
+      audioEl?.pause();
+      playingSpotifyId = null;
+    }
     savedTracks.removeTrack(spotifyId);
     if (selectedTracks.has(spotifyId)) {
       selectedTracks.delete(spotifyId);
       selectedTracks = new Set(selectedTracks);
+    }
+  }
+
+  async function togglePlay(track: any) {
+    if (playingSpotifyId === track.spotifyId) {
+      audioEl?.pause();
+      playingSpotifyId = null;
+      return;
+    }
+
+    let url = track.previewUrl || previewCache.get(track.spotifyId) || '';
+
+    if (!url) {
+      loadingAudioId = track.spotifyId;
+      try {
+        const res = await fetch(
+          `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          url = data.previewUrl || '';
+          if (url) previewCache.set(track.spotifyId, url);
+        }
+      } catch (e) {
+        console.error('Failed to load preview:', e);
+      } finally {
+        loadingAudioId = null;
+      }
+    }
+
+    if (!url) {
+      alert('No audio preview available for this track.');
+      return;
+    }
+
+    if (audioEl) {
+      audioEl.src = url;
+      audioEl
+        .play()
+        .then(() => {
+          playingSpotifyId = track.spotifyId;
+        })
+        .catch(() => {
+          playingSpotifyId = null;
+        });
     }
   }
 
@@ -144,22 +209,58 @@
         <a href="/categories" class="inline-block bg-primary text-white font-bold py-4 px-8 rounded-full hover:scale-105 transition-transform shadow-lg shadow-primary/30">Start Exploring</a>
       </div>
     {:else}
+      <!-- Toolbar: Select/Deselect All -->
+      <div class="flex items-center justify-between mb-4 px-1">
+        <span class="text-sm text-gray-400">
+          Showing {$savedTracks.length} saved {$savedTracks.length === 1 ? 'track' : 'tracks'}
+        </span>
+        <div class="flex gap-2">
+          <button
+            onclick={selectAll}
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+          >
+            Select All
+          </button>
+          <button
+            onclick={deselectAll}
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+          >
+            Deselect All
+          </button>
+        </div>
+      </div>
 
       <div class="space-y-4 mb-8">
         {#each $savedTracks as track (track.id)}
-          <div class="flex items-center space-x-4 bg-gray-900/50 hover:bg-gray-900 border border-gray-800 p-4 rounded-2xl transition-colors">
+          <div class="group flex items-center space-x-4 bg-gray-900/50 hover:bg-gray-900 border border-gray-800 p-4 rounded-2xl transition-colors">
             <!-- Checkbox -->
             <button 
-              class="w-6 h-6 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors {selectedTracks.has(track.spotifyId) ? 'bg-primary border-primary text-black' : 'border-gray-600 hover:border-gray-400'}"
+              class="w-6 h-6 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors cursor-pointer {selectedTracks.has(track.spotifyId) ? 'bg-primary border-primary text-black' : 'border-gray-600 hover:border-gray-400'}"
               onclick={() => toggleSelection(track.spotifyId)}
+              aria-label="Select track"
             >
               {#if selectedTracks.has(track.spotifyId)}
                 <Check size={16} strokeWidth={4} />
               {/if}
             </button>
 
-            <!-- Album Art -->
-            <img src={track.albumArt} alt={track.title} class="w-16 h-16 rounded-md object-cover shadow-md shrink-0" />
+            <!-- Album Art + Play Button Overlay -->
+            <div class="relative w-16 h-16 rounded-md overflow-hidden shrink-0 group/cover">
+              <img src={track.albumArt} alt={track.title} class="w-full h-full object-cover shadow-md" />
+              <button
+                onclick={() => togglePlay(track)}
+                aria-label={playingSpotifyId === track.spotifyId ? 'Pause preview' : 'Play preview'}
+                class="absolute inset-0 bg-black/45 flex items-center justify-center transition-opacity cursor-pointer {playingSpotifyId === track.spotifyId ? 'opacity-100 bg-primary/25' : 'opacity-0 group-hover/cover:opacity-100'}"
+              >
+                {#if loadingAudioId === track.spotifyId}
+                  <Loader2 size={22} class="text-white animate-spin" />
+                {:else if playingSpotifyId === track.spotifyId}
+                  <Pause size={22} class="text-primary fill-primary" />
+                {:else}
+                  <Play size={22} class="text-white fill-white translate-x-0.5" />
+                {/if}
+              </button>
+            </div>
 
             <!-- Track Info -->
             <div class="flex-1 min-w-0">
@@ -168,12 +269,18 @@
             </div>
 
             <!-- Remove Button -->
-            <button class="p-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors shrink-0" onclick={() => removeTrack(track.spotifyId)}>
+            <button
+              class="p-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors shrink-0 cursor-pointer"
+              onclick={() => removeTrack(track.spotifyId)}
+              aria-label="Remove track"
+            >
               <Trash2 size={20} />
             </button>
           </div>
         {/each}
       </div>
+
+      <audio bind:this={audioEl} onended={() => (playingSpotifyId = null)} class="hidden"></audio>
     {/if}
   </div>
 </div>
