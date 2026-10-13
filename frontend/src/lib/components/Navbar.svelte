@@ -9,7 +9,14 @@
 
   let title = $derived.by(() => {
     if (isDiscover) {
+      if ($page.data?.categoryName) return $page.data.categoryName;
       const slug = $page.url.pathname.split('/').pop() || '';
+      if (slug === 'explore') return 'Explore';
+      if (slug === 'opm') return 'OPM Hits';
+      if (slug === 'k-pop') return 'K-Pop';
+      if (slug === 'j-pop') return 'J-Pop & Anime';
+      if (slug === 'r-n-b') return 'R&B Soul';
+      if (slug === 'lo-fi') return 'Lo-Fi Beats';
       return slug.replace(/-/g, ' ');
     }
     return 'HearMeOut';

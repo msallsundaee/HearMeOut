@@ -4,7 +4,8 @@ import { getCategoryBySlug } from '$lib/server/categories';
 
 export async function GET({ url, cookies, fetch }) {
     let token = cookies.get('spotify_access_token');
-    const slug = url.searchParams.get('slug') || 'pop';
+    const rawSlug = url.searchParams.get('slug') || 'explore';
+    const slug = rawSlug === 'discover' ? 'explore' : rawSlug;
 
     const categoryPlaylistId = getCategoryBySlug(slug, fetch).then(
         (category) => category?.spotifyPlaylistId || undefined

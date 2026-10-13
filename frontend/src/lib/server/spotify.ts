@@ -218,63 +218,138 @@ export async function fetchTracksFromPlaylist(
     }
 }
 
-export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
-    let offset = Math.floor(Math.random() * 100);
-    const genreMap: Record<string, string> = {
-        'pop': 'genre:pop',
-        'hip-hop': 'genre:"hip hop"',
-        'indie': 'genre:indie',
-        'rock': 'genre:rock',
-        'r-n-b': 'genre:"r&b"',
-        'electronic': 'genre:edm',
-        'country': 'genre:country',
-        'k-pop': 'genre:"k-pop"'
-    };
+const GENRE_QUERY_POOLS: Record<string, string[]> = {
+    'opm': ['opm', 'tagalog hits', 'pinoy pop', 'opm love songs', 'pinoy rock'],
+    'pop': ['top pop hits', 'pop hits', 'pop classics', 'billboard pop'],
+    'hip-hop': ['hip hop', 'rap hits', '90s hip hop', 'hip hop classics'],
+    'r-n-b': ['r&b soul', 'contemporary r&b', '90s r&b', 'r&b classics'],
+    'indie': ['indie pop', 'indie rock', 'indie vibes', 'bedroom pop'],
+    'rock': ['rock classics', 'modern rock', 'alt rock', 'hard rock'],
+    'k-pop': ['kpop hits', 'k-pop', 'korean pop', 'kpop girl group'],
+    'j-pop': ['j-pop', 'jpop anime', 'japanese pop', 'city pop japan'],
+    'latin': ['reggaeton', 'latin pop', 'musica latina', 'bachata hits'],
+    'afrobeats': ['afrobeats', 'afrobeats hits', 'amapiano hits', 'afropop'],
+    'electronic': ['edm hits', 'house music', 'dance electronic', 'electro house'],
+    'country': ['country hits', 'modern country', 'country classics'],
+    'jazz': ['jazz classics', 'smooth jazz', 'vocal jazz', 'blue note jazz'],
+    'lo-fi': ['lofi chill', 'lo-fi beats', 'lofi study', 'chillhop'],
+    'metal': ['heavy metal', 'metalcore', 'metal hits', 'thrash metal'],
+    'classical': ['classical essentials', 'beethoven chopin', 'orchestral classical', 'piano classical'],
+    'workout': ['workout motivation', 'gym pump hits', 'high energy workout'],
+    'chill': ['chill acoustic', 'chill lounge', 'relaxing acoustic hits', 'acoustic chill']
+};
 
-    const currentYear = new Date().getFullYear();
-    let query = genreMap[slug] || `genre:${slug}`;
-    if (slug === 'workout') {
-         query = 'workout motivation';
-    } else if (slug === 'chill') {
-         query = 'chill relax';
-    } else if (slug === 'top-50') {
-         query = `year:${currentYear - 1}-${currentYear}`;
-    } else if (slug === 'discover' || slug === 'random') {
-         const genres = ['pop', 'rock', 'hip-hop', 'r-n-b', 'indie', 'electronic', 'jazz', 'classical', 'country', 'latin', 'reggae', 'metal', 'soul', 'house', 'techno', 'punk'];
-         const randomGenre = genres[Math.floor(Math.random() * genres.length)];
-         const chars = 'abcdefghijklmnopqrstuvwxyz';
-         const randomChar = chars.charAt(Math.floor(Math.random() * chars.length));
-         
-         // Select a random 5-year window from 1960 to the current year to fetch timeless music
-         const startYear = 1960 + Math.floor(Math.random() * (currentYear - 1960 - 5));
-         const endYear = startYear + 5;
+const EXPLORE_GENRES = [
+    'pop', 'indie', 'r-n-b', 'afrobeats', 'hip-hop', 'latin', 'electronic', 'opm', 'k-pop', 'rock', 'chill'
+];
 
-         const queries = [
-             `genre:${randomGenre}`,
-             `genre:${randomGenre} ${randomChar}`,
-             `year:${startYear}-${endYear} ${randomChar}`,
-             `%${randomChar}%`,
-             `year:1970-${currentYear}`
-         ];
-         query = queries[Math.floor(Math.random() * queries.length)];
-         offset = Math.floor(Math.random() * 150); // Keep offset safe to avoid empty pages on niche queries
-    }
-    
-    const spotifyUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10&offset=${offset}`;
-    
-    const res = await fetch(spotifyUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-    const text = await res.text();
-    if (res.status === 401) return 401;
-    if (res.status === 429) return 429;
-    if (!res.ok) {
-        console.error(`Spotify API error: ${res.status} ${text}`);
+async function searchSingleQuery(
+    q: string,
+    limit: number,
+    offset: number,
+    accessToken: string,
+    fetch: typeof globalThis.fetch
+): Promise<any[] | 401 | 429> {
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${limit}&offset=${offset}`;
+    try {
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            signal: AbortSignal.timeout(4000)
+        });
+        if (res.status === 401) return 401;
+        if (res.status === 429) return 429;
+        if (!res.ok) {
+            console.error(`Spotify API error for "${q}": ${res.status}`);
+            return [];
+        }
+        const data = await res.json();
+        const items = (data.tracks?.items || []).filter((t: any) => t);
+        if (items.length === 0 && offset > 0) {
+            const fallbackUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${limit}&offset=0`;
+            const fbRes = await fetch(fallbackUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                signal: AbortSignal.timeout(3000)
+            });
+            if (fbRes.ok) {
+                const fbData = await fbRes.json();
+                return (fbData.tracks?.items || []).filter((t: any) => t);
+            }
+        }
+        return items;
+    } catch {
         return [];
     }
-    
-    const data = JSON.parse(text);
-    let items = (data.tracks?.items || []).filter((t: any) => t);
-    items = items.sort(() => Math.random() - 0.5);
+}
 
+export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
+    if (slug === 'explore' || slug === 'discover' || slug === 'random') {
+        // Multi-genre eclectic discovery mix: sample across 3 distinct genres
+        const shuffledSlugs = [...EXPLORE_GENRES].sort(() => Math.random() - 0.5).slice(0, 3);
+        const subQueries = shuffledSlugs.map((s) => {
+            const pool = GENRE_QUERY_POOLS[s] || [s];
+            return pool[Math.floor(Math.random() * pool.length)];
+        });
+
+        const limits = [4, 3, 3];
+        const searchPromises = subQueries.map((q, i) => {
+            const offset = Math.floor(Math.random() * 12);
+            return searchSingleQuery(q, limits[i], offset, accessToken, fetch);
+        });
+
+        const batchResults = await Promise.all(searchPromises);
+        for (const res of batchResults) {
+            if (res === 401 || res === 429) return res;
+        }
+
+        const seen = new Set<string>();
+        let mixedItems: any[] = [];
+        for (const res of batchResults) {
+            if (Array.isArray(res)) {
+                for (const t of res) {
+                    if (t && t.id && !seen.has(t.id)) {
+                        seen.add(t.id);
+                        mixedItems.push(t);
+                    }
+                }
+            }
+        }
+
+        if (mixedItems.length < 5) {
+            const fbRes = await searchSingleQuery('top pop hits', 10, 0, accessToken, fetch);
+            if (fbRes === 401 || fbRes === 429) return fbRes;
+            if (Array.isArray(fbRes)) {
+                for (const t of fbRes) {
+                    if (t && t.id && !seen.has(t.id)) {
+                        seen.add(t.id);
+                        mixedItems.push(t);
+                    }
+                }
+            }
+        }
+
+        mixedItems = mixedItems.sort(() => Math.random() - 0.5);
+        return mixedItems.map(toAppTrack);
+    }
+
+    let query: string;
+    if (slug === 'top-50') {
+        const currentYear = new Date().getFullYear();
+        query = `year:${currentYear - 1}-${currentYear}`;
+    } else {
+        const pool = GENRE_QUERY_POOLS[slug];
+        if (pool && pool.length > 0) {
+            query = pool[Math.floor(Math.random() * pool.length)];
+        } else {
+            query = slug.replace(/-/g, ' ');
+        }
+    }
+
+    const initialOffset = Math.floor(Math.random() * 20);
+    let items = await searchSingleQuery(query, 10, initialOffset, accessToken, fetch);
+    if (items === 401 || items === 429) return items;
+
+    if (!Array.isArray(items)) return [];
+    items = items.sort(() => Math.random() - 0.5);
     return items.map(toAppTrack);
 }
 

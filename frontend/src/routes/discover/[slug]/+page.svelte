@@ -149,20 +149,39 @@
   }
 
   let formattedCategory = $derived(
+    data.categoryName ||
     categoryName
       .split(' ')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   );
 
+  let isExplore = $derived(data.categorySlug === 'explore');
+
+  let pageTitle = $derived(
+    isExplore
+      ? 'Explore Music & Fresh Discoveries'
+      : data.categorySlug === 'opm'
+        ? 'OPM Hits — Discover Filipino Music & Songs'
+        : `Discover ${formattedCategory} Songs`
+  );
+
+  let pageDescription = $derived(
+    isExplore
+      ? 'Explore an eclectic mix of trending hits, indie discoveries, global sounds, and hidden gems. Preview 30-second clips and swipe to save songs to Spotify.'
+      : data.categorySlug === 'opm'
+        ? 'Preview and swipe through trending OPM hits and classic Filipino songs. Listen to 30-second clips and save the best Pinoy music straight to Spotify.'
+        : `Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips and save the best tracks straight to Spotify.`
+  );
+
   let playlistSchema = $derived({
     '@context': 'https://schema.org',
     '@type': 'MusicPlaylist',
-    name: `${formattedCategory} Music Discovery`,
+    name: isExplore ? 'Eclectic Music Discovery & Mix' : `${formattedCategory} Music Discovery`,
     numTracks: tracks.length,
-    genre: formattedCategory,
+    genre: isExplore ? 'Eclectic Music Mix' : formattedCategory,
     url: getCanonicalUrl(`/discover/${data.categorySlug}`),
-    description: `Preview and discover trending ${formattedCategory} songs with 30-second audio clips on HearMeOut.`,
+    description: pageDescription,
     track: tracks.slice(0, 10).map((t: any) => ({
       '@type': 'MusicRecording',
       name: t.title,
@@ -182,12 +201,12 @@
 </script>
 
 <SEO
-  title={`Discover ${formattedCategory} Songs`}
-  description={`Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips and save the best tracks straight to Spotify.`}
+  title={pageTitle}
+  description={pageDescription}
   pathname={`/discover/${data.categorySlug}`}
   ogType="music.playlist"
   image={front?.albumArt || undefined}
-  imageAlt={`${formattedCategory} trending music on HearMeOut`}
+  imageAlt={`${formattedCategory} music on HearMeOut`}
   schema={playlistSchema}
   breadcrumbs={breadcrumbs}
   audioPreviewUrl={front?.previewUrl || undefined}
@@ -199,7 +218,11 @@
   class="relative flex h-dvh flex-col overflow-hidden bg-background text-white select-none"
   in:fade={{ duration: 200 }}
 >
-  <h1 class="sr-only">Discover {formattedCategory} Songs — Swipe &amp; Preview on HearMeOut</h1>
+  <h1 class="sr-only">
+    {isExplore
+      ? 'Explore Music & Discover Fresh Songs — Swipe & Preview on HearMeOut'
+      : `Discover ${formattedCategory} Songs — Swipe & Preview on HearMeOut`}
+  </h1>
   <!-- ── Ambient backdrop, tinted by the front cover ────── -->
   <Aurora intensity={0.45} />
   {#if front}

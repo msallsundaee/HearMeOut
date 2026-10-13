@@ -1,7 +1,12 @@
+import { redirect } from '@sveltejs/kit';
 import { getTracksWithRetry } from '$lib/server/spotify';
-import { getCategoryBySlug } from '$lib/server/categories';
+import { getCategoryBySlug, formatCategoryTitle } from '$lib/server/categories';
 
 export async function load({ params, cookies, fetch, setHeaders }) {
+    if (params.slug === 'discover') {
+        throw redirect(308, '/discover/explore');
+    }
+
     let token = cookies.get('spotify_access_token');
 
     // If guest user without user-specific token, cache at edge briefly to avoid hammering Spotify
@@ -28,8 +33,11 @@ export async function load({ params, cookies, fetch, setHeaders }) {
         }];
     }
 
+    const categoryName = formatCategoryTitle(params.slug);
+
     return {
         categorySlug: params.slug,
+        categoryName,
         tracks
     };
 }
