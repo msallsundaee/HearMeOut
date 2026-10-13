@@ -346,19 +346,6 @@
       class="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-black/75 to-transparent"
     ></div>
 
-    <!-- Glowing bottom audio progress bar when preview is active -->
-    {#if previewState === 'ready' && isFront}
-      <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-1 bg-white/20 overflow-hidden"
-        aria-hidden="true"
-      >
-        <div
-          class="h-full bg-primary shadow-[0_0_8px_var(--color-primary)] transition-[width] duration-150 ease-linear"
-          style="width: {duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0}%;"
-        ></div>
-      </div>
-    {/if}
-
     <!-- Directional colour wash, tracking the gesture -->
     <div
       class="pointer-events-none absolute inset-0 bg-save mix-blend-overlay"
@@ -424,9 +411,7 @@
         <button
           data-no-drag
           aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-          class="pointer-events-auto group relative flex items-center justify-center gap-2.5 px-3 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer {needsTap
-            ? 'animate-pulse'
-            : ''}"
+          class="pointer-events-auto group relative flex flex-col items-center justify-center px-3 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           onpointerdown={(e) => e.stopPropagation()}
           onclick={(e) => {
             e.stopPropagation();
@@ -435,27 +420,23 @@
         >
           {#if isBuffering}
             <span
-              class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white "
+              class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white"
             ></span>
           {:else if isPlaying}
-            <div class="flex items-center gap-2.5">
-              <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
-              <span class="text-xs font-mono tabular-nums text-white/70">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            </div>
+            <Equalizer bars={8} playing class="mt-5 h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+            <span class="mt-3 text-[11px] font-mono tabular-nums tracking-wider text-white/60">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
           {:else}
-            <div class="flex items-center gap-2 opacity-80 transition-opacity duration-300 group-hover:opacity-100">
+            <div class="flex items-center gap-2 opacity-80 transition-opacity duration-300 group-hover:opacity-100 mt-5">
               <Play size={15} fill="currentColor" class="text-white translate-x-px" />
               <Equalizer bars={8} playing={false} class="h-5 w-12 sm:h-5.5 sm:w-14" color="#ffffff" />
-              {#if needsTap}
-                <span class="text-[11px] font-semibold text-primary ml-0.5">Tap to play</span>
-              {:else if currentTime > 0}
-                <span class="text-xs font-mono tabular-nums text-white/50 ml-0.5">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              {/if}
             </div>
+            {#if currentTime > 0}
+              <span class="mt-3 text-[11px] font-mono tabular-nums tracking-wider text-white/40">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            {/if}
           {/if}
         </button>
 
