@@ -3,7 +3,7 @@
   import Aurora from '$lib/components/Aurora.svelte';
   import { fade, fly } from 'svelte/transition';
   import { savedTracks } from '$lib/stores/savedTracks';
-  import { Heart, X, RotateCcw, Sparkles } from 'lucide-svelte';
+  import { Heart, X, RotateCcw, Sparkles, Disc3, Compass } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import SEO from '$lib/components/SEO.svelte';
   import { getCanonicalUrl } from '$lib/config/site';
@@ -201,6 +201,14 @@
     { name: 'Categories', url: '/categories' },
     { name: formattedCategory, url: `/discover/${data.categorySlug}` }
   ]);
+
+  const quickGenres = [
+    { name: 'Explore', slug: 'explore' },
+    { name: 'Pop', slug: 'pop' },
+    { name: 'Rock', slug: 'rock' },
+    { name: 'OPM Hits', slug: 'opm' },
+    { name: 'Hip-Hop', slug: 'hip-hop' }
+  ];
 </script>
 
 <SEO
@@ -259,8 +267,8 @@
     class="relative z-10 flex min-h-0 flex-1 items-center justify-center px-4"
     bind:clientHeight={deckAreaH}
   >
-    <div class="relative" style="width: {cardWidth}px; height: {cardWidth * TITLE_RATIO}px;">
-      {#if tracks.length > 0}
+    {#if tracks.length > 0}
+      <div class="relative" style="width: {cardWidth}px; height: {cardWidth * TITLE_RATIO}px;">
         {#each visible as track, i (track.id)}
           {@const ex = exiting}
           {@const dir = ex && ex.id === track.id ? ex.dir : null}
@@ -292,42 +300,86 @@
             />
           </div>
         {/each}
-      {:else if isLoadingMore}
-        <div class="flex flex-col items-center gap-6 py-16" in:fade>
-          <div class="relative h-20 w-20">
-            <div class="absolute inset-0 rounded-full border-4 border-white/10"></div>
-            <div
-              class="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary border-r-spotify"
-            ></div>
-          </div>
-          <p class="text-base font-medium text-white/50">Digging up more {categoryName}…</p>
+      </div>
+    {:else if isLoadingMore}
+      <div class="flex flex-col items-center gap-6 py-16" in:fade>
+        <div class="relative h-20 w-20">
+          <div class="absolute inset-0 rounded-full border-4 border-white/10"></div>
+          <div
+            class="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary border-r-spotify"
+          ></div>
         </div>
-      {:else}
-        <div class="flex flex-col items-center gap-5 py-12 text-center" in:fade>
-          <div class="glass grid h-20 w-20 place-items-center rounded-full">
-            <Sparkles size={32} class="text-primary" />
-          </div>
-          <div>
-            <h2 class="font-display text-3xl font-black text-white">That's the whole crate</h2>
-            <p class="mt-1.5 text-white/50">You've been through every {categoryName} track.</p>
-          </div>
-          <div class="flex flex-col gap-3 pt-2 sm:flex-row">
-            <a
-              href="/categories"
-              class="brand-gradient flex h-12 items-center justify-center rounded-full px-7 font-bold text-white shadow-lg shadow-primary/30 active:scale-95"
-            >
-              Browse genres
-            </a>
-            <a
-              href="/saved"
-              class="glass flex h-12 items-center justify-center rounded-full px-7 font-bold text-white/85 hover:bg-white/10 active:scale-95"
-            >
-              See your {savedCount || ''} saves
-            </a>
+        <p class="text-base font-medium text-white/50">Digging up more {categoryName}…</p>
+      </div>
+    {:else}
+      <div class="relative z-10 mx-auto flex w-full max-w-md flex-col items-center justify-center text-center px-4 py-6" in:fade>
+        <!-- Vinyl graphic with subtle neon aura -->
+        <div class="relative mb-5 flex items-center justify-center">
+          <div
+            class="absolute -inset-4 rounded-full bg-primary/20 blur-xl animate-pulse"
+            aria-hidden="true"
+          ></div>
+          <div
+            class="glass-strong relative flex h-20 w-20 items-center justify-center rounded-full border border-white/15 shadow-[0_0_35px_rgba(29,185,84,0.3)] sm:h-24 sm:w-24"
+          >
+            <Disc3
+              size={44}
+              class="text-primary animate-[spin_10s_linear_infinite]"
+              strokeWidth={1.75}
+            />
+            <div class="absolute h-3.5 w-3.5 rounded-full bg-background border-2 border-white/30"></div>
           </div>
         </div>
-      {/if}
-    </div>
+
+        <!-- Pill badge -->
+        <div
+          class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs font-mono font-bold tracking-widest text-primary uppercase backdrop-blur-md"
+        >
+          <span>Crate Finished</span>
+        </div>
+
+        <h2 class="font-display text-2xl font-black tracking-tight text-white sm:text-3xl">
+          That's the whole crate
+        </h2>
+        <p class="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-white/60">
+          You've listened through every track in <span class="text-white font-medium">{formattedCategory}</span>.
+        </p>
+
+        <!-- Action buttons -->
+        <div class="mt-6 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
+          <a
+            href="/categories"
+            class="brand-gradient flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95 sm:w-auto"
+          >
+            <Disc3 size={16} />
+            <span>Browse Crates</span>
+          </a>
+          <a
+            href="/saved"
+            class="glass flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-95 sm:w-auto"
+          >
+            <span>See Saves ({savedCount || 0})</span>
+          </a>
+        </div>
+
+        <!-- Quick Crate jump links -->
+        <div class="mt-6 flex flex-col items-center gap-2">
+          <span class="text-[10px] font-semibold tracking-[0.2em] text-white/35 uppercase">
+            Jump to another vibe
+          </span>
+          <div class="flex flex-wrap items-center justify-center gap-1.5">
+            {#each quickGenres.filter((g) => g.slug !== data.categorySlug) as genre}
+              <a
+                href="/discover/{genre.slug}"
+                class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/75 transition-all hover:border-primary/50 hover:bg-white/10 hover:text-white active:scale-95"
+              >
+                {genre.name}
+              </a>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- ── Controls ───────────────────────────────────────── -->

@@ -392,7 +392,7 @@
   <!-- Nothing here truncates: long titles step down a size instead, so a
        "… - 2019 Remaster" suffix still wraps onto a second line in full. -->
   <div
-    class="pointer-events-none w-full px-1 pt-7 text-center transition-opacity duration-300 {isFront
+    class="pointer-events-none w-full px-1 pt-5 sm:pt-7 text-center transition-opacity duration-300 {isFront
       ? 'opacity-100'
       : 'opacity-0'}"
   >
