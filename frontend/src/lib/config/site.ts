@@ -3,24 +3,31 @@ import { env } from '$env/dynamic/public';
 export const siteConfig = {
 	name: 'HearMeOut',
 	shortName: 'HearMeOut',
-	tagline: 'Swipe & Discover New Music',
+	tagline: 'Find Songs for Stories & Discover Fresh Music',
 	description:
-		'Stop scrolling endless playlists. Discover fresh music by swiping right on 30-second audio previews, and seamlessly sync your favorite tracks to Spotify.',
+		'Find the perfect songs for your Instagram stories, reels, TikToks, and playlists. Swipe right on 30-second audio previews, audition aesthetic tracks, and seamlessly sync your favorites to Spotify.',
 	url: env.PUBLIC_SITE_URL || 'https://hearme-out.vercel.app',
 	ogImage: '/og-image.jpg',
 	creator: 'Bea Clarise',
 	twitterHandle: '@HearMeOutApp',
 	themeColor: '#000000',
 	keywords: [
+		'songs for instagram stories',
+		'songs for reels',
+		'photo dump songs',
+		'find songs for stories',
+		'aesthetic song finder',
+		'music for instagram posts',
+		'30 second music preview',
 		'music discovery',
 		'swipe music',
 		'tinder for music',
 		'spotify preview',
-		'30 second music preview',
 		'discover new songs',
+		'songs for tiktok',
 		'song recommender',
-		'music streaming',
 		'spotify playlist sync',
+		'aesthetic music discovery',
 		'hearmeout'
 	]
 };

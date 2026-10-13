@@ -3,7 +3,7 @@
   import Aurora from '$lib/components/Aurora.svelte';
   import { fade, fly } from 'svelte/transition';
   import { savedTracks } from '$lib/stores/savedTracks';
-  import { Heart, X, RotateCcw, Sparkles } from 'lucide-svelte';
+  import { Heart, X, RotateCcw, Sparkles, Disc3, Compass } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import SEO from '$lib/components/SEO.svelte';
   import { getCanonicalUrl } from '$lib/config/site';
@@ -118,7 +118,7 @@
       tracks = tracks.filter((t) => t.id !== track.id);
       history = [{ track, dir }, ...history].slice(0, 20);
       exiting = null;
-      if (tracks.length <= 3) fetchMoreTracks();
+      if (tracks.length <= 4) fetchMoreTracks();
     }, EXIT_MS);
   }
 
@@ -145,24 +145,74 @@
     } else if (e.key === 'z' || e.key === 'Backspace') {
       e.preventDefault();
       undo();
+    } else if (e.code === 'Space' || e.key === ' ') {
+      // Prevent browser from scrolling down the page
+      e.preventDefault();
     }
   }
 
   let formattedCategory = $derived(
+    data.categoryName ||
     categoryName
       .split(' ')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   );
 
+  let isExplore = $derived(data.categorySlug === 'explore');
+
+  let pageTitle = $derived(
+    isExplore
+      ? 'Explore Music & Fresh Discoveries — Songs for Stories & Reels'
+      : data.categorySlug === 'opm'
+        ? 'OPM Hits — Filipino Songs for Stories, Reels & Playlists'
+        : data.categorySlug === 'lo-fi'
+          ? 'Lo-Fi Beats — Aesthetic Chill Songs for Vlogs & Stories'
+          : data.categorySlug === 'chill'
+            ? 'Chill & Relax — Aesthetic Songs for Photo Dumps & Stories'
+            : data.categorySlug === 'workout'
+              ? 'Workout Music — High Energy Beats for Gym Stories & Reels'
+              : data.categorySlug === 'indie'
+                ? 'Indie Vibes — Aesthetic Alternative Songs for Reels & Stories'
+                : `${formattedCategory} Songs — 30s Clips for Stories & Playlists`
+  );
+
+  let pageDescription = $derived(
+    isExplore
+      ? 'Explore an eclectic mix of trending hits, aesthetic tracks, and hidden gems. Preview 30-second clips to find the perfect soundtrack for your Instagram stories, reels, or photo dumps, and swipe to save straight to Spotify.'
+      : data.categorySlug === 'opm'
+        ? 'Preview and swipe through trending OPM hits and classic Filipino songs. Audition 30-second clips for your stories, travel reels, and posts, and save the best Pinoy music to Spotify.'
+        : data.categorySlug === 'lo-fi'
+          ? 'Audition aesthetic lo-fi beats and cozy instrumentals. Find the perfect 30-second background music for study vlogs, aesthetic stories, and chill reels.'
+          : data.categorySlug === 'chill'
+            ? 'Discover relaxed, dreamy vibes for your photo dumps, sunset clips, and aesthetic stories. Listen to 30-second previews and swipe to save.'
+            : data.categorySlug === 'workout'
+              ? 'Find high-energy workout beats and gym anthems for your fitness reels, PR stories, and training playlists. Swipe 30-second previews to save.'
+              : data.categorySlug === 'indie'
+                ? 'Preview fresh indie discoveries and aesthetic alternative tracks. Find the perfect vibe for your Instagram reels and stories.'
+                : `Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips to find the right sound for your stories and playlists, and save straight to Spotify.`
+  );
+
+  let categoryKeywords = $derived([
+    `${formattedCategory.toLowerCase()} songs`,
+    `songs for instagram stories ${formattedCategory.toLowerCase()}`,
+    `songs for reels`,
+    `photo dump songs`,
+    `music for stories`,
+    `30 second music preview`,
+    `${formattedCategory.toLowerCase()} playlist`,
+    'discover new songs',
+    'swipe music'
+  ]);
+
   let playlistSchema = $derived({
     '@context': 'https://schema.org',
     '@type': 'MusicPlaylist',
-    name: `${formattedCategory} Music Discovery`,
+    name: isExplore ? 'Eclectic Music Discovery & Mix' : `${formattedCategory} Music Discovery`,
     numTracks: tracks.length,
-    genre: formattedCategory,
+    genre: isExplore ? 'Eclectic Music Mix' : formattedCategory,
     url: getCanonicalUrl(`/discover/${data.categorySlug}`),
-    description: `Preview and discover trending ${formattedCategory} songs with 30-second audio clips on HearMeOut.`,
+    description: pageDescription,
     track: tracks.slice(0, 10).map((t: any) => ({
       '@type': 'MusicRecording',
       name: t.title,
@@ -179,15 +229,24 @@
     { name: 'Categories', url: '/categories' },
     { name: formattedCategory, url: `/discover/${data.categorySlug}` }
   ]);
+
+  const quickGenres = [
+    { name: 'Explore', slug: 'explore' },
+    { name: 'Pop', slug: 'pop' },
+    { name: 'Rock', slug: 'rock' },
+    { name: 'OPM Hits', slug: 'opm' },
+    { name: 'Hip-Hop', slug: 'hip-hop' }
+  ];
 </script>
 
 <SEO
-  title={`Discover ${formattedCategory} Songs`}
-  description={`Preview and swipe through trending ${formattedCategory} music. Hear 30-second clips and save the best tracks straight to Spotify.`}
+  title={pageTitle}
+  description={pageDescription}
   pathname={`/discover/${data.categorySlug}`}
+  keywords={categoryKeywords}
   ogType="music.playlist"
   image={front?.albumArt || undefined}
-  imageAlt={`${formattedCategory} trending music on HearMeOut`}
+  imageAlt={`${formattedCategory} music on HearMeOut`}
   schema={playlistSchema}
   breadcrumbs={breadcrumbs}
   audioPreviewUrl={front?.previewUrl || undefined}
@@ -199,7 +258,11 @@
   class="relative flex h-dvh flex-col overflow-hidden bg-background text-white select-none"
   in:fade={{ duration: 200 }}
 >
-  <h1 class="sr-only">Discover {formattedCategory} Songs — Swipe &amp; Preview on HearMeOut</h1>
+  <h1 class="sr-only">
+    {isExplore
+      ? 'Explore Music & Discover Fresh Songs — Swipe & Preview on HearMeOut'
+      : `Discover ${formattedCategory} Songs — Swipe & Preview on HearMeOut`}
+  </h1>
   <!-- ── Ambient backdrop, tinted by the front cover ────── -->
   <Aurora intensity={0.45} />
   {#if front}
@@ -233,8 +296,8 @@
     class="relative z-10 flex min-h-0 flex-1 items-center justify-center px-4"
     bind:clientHeight={deckAreaH}
   >
-    <div class="relative" style="width: {cardWidth}px; height: {cardWidth * TITLE_RATIO}px;">
-      {#if tracks.length > 0}
+    {#if tracks.length > 0}
+      <div class="relative" style="width: {cardWidth}px; height: {cardWidth * TITLE_RATIO}px;">
         {#each visible as track, i (track.id)}
           {@const ex = exiting}
           {@const dir = ex && ex.id === track.id ? ex.dir : null}
@@ -256,6 +319,7 @@
             <SwipeCard
               {track}
               isActive={depth === 0}
+              shouldPrefetch={depth <= 1}
               exitDir={dir}
               onCommit={commit}
               showHint={showHint && depth === 0}
@@ -265,42 +329,86 @@
             />
           </div>
         {/each}
-      {:else if isLoadingMore}
-        <div class="flex flex-col items-center gap-6 py-16" in:fade>
-          <div class="relative h-20 w-20">
-            <div class="absolute inset-0 rounded-full border-4 border-white/10"></div>
-            <div
-              class="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary border-r-spotify"
-            ></div>
-          </div>
-          <p class="text-base font-medium text-white/50">Digging up more {categoryName}…</p>
+      </div>
+    {:else if isLoadingMore}
+      <div class="flex flex-col items-center gap-6 py-16" in:fade>
+        <div class="relative h-20 w-20">
+          <div class="absolute inset-0 rounded-full border-4 border-white/10"></div>
+          <div
+            class="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary border-r-spotify"
+          ></div>
         </div>
-      {:else}
-        <div class="flex flex-col items-center gap-5 py-12 text-center" in:fade>
-          <div class="glass grid h-20 w-20 place-items-center rounded-full">
-            <Sparkles size={32} class="text-primary" />
-          </div>
-          <div>
-            <h2 class="font-display text-3xl font-black text-white">That's the whole crate</h2>
-            <p class="mt-1.5 text-white/50">You've been through every {categoryName} track.</p>
-          </div>
-          <div class="flex flex-col gap-3 pt-2 sm:flex-row">
-            <a
-              href="/categories"
-              class="brand-gradient flex h-12 items-center justify-center rounded-full px-7 font-bold text-white shadow-lg shadow-primary/30 active:scale-95"
-            >
-              Browse genres
-            </a>
-            <a
-              href="/saved"
-              class="glass flex h-12 items-center justify-center rounded-full px-7 font-bold text-white/85 hover:bg-white/10 active:scale-95"
-            >
-              See your {savedCount || ''} saves
-            </a>
+        <p class="text-base font-medium text-white/50">Digging up more {categoryName}…</p>
+      </div>
+    {:else}
+      <div class="relative z-10 mx-auto flex w-full max-w-md flex-col items-center justify-center text-center px-4 py-6" in:fade>
+        <!-- Vinyl graphic with subtle neon aura -->
+        <div class="relative mb-5 flex items-center justify-center">
+          <div
+            class="absolute -inset-4 rounded-full bg-primary/20 blur-xl animate-pulse"
+            aria-hidden="true"
+          ></div>
+          <div
+            class="glass-strong relative flex h-20 w-20 items-center justify-center rounded-full border border-white/15 shadow-[0_0_35px_rgba(29,185,84,0.3)] sm:h-24 sm:w-24"
+          >
+            <Disc3
+              size={44}
+              class="text-primary animate-[spin_10s_linear_infinite]"
+              strokeWidth={1.75}
+            />
+            <div class="absolute h-3.5 w-3.5 rounded-full bg-background border-2 border-white/30"></div>
           </div>
         </div>
-      {/if}
-    </div>
+
+        <!-- Pill badge -->
+        <div
+          class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs font-mono font-bold tracking-widest text-primary uppercase backdrop-blur-md"
+        >
+          <span>Crate Finished</span>
+        </div>
+
+        <h2 class="font-display text-2xl font-black tracking-tight text-white sm:text-3xl">
+          That's the whole crate
+        </h2>
+        <p class="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-white/60">
+          You've listened through every track in <span class="text-white font-medium">{formattedCategory}</span>.
+        </p>
+
+        <!-- Action buttons -->
+        <div class="mt-6 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
+          <a
+            href="/categories"
+            class="brand-gradient flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95 sm:w-auto"
+          >
+            <Disc3 size={16} />
+            <span>Browse Crates</span>
+          </a>
+          <a
+            href="/saved"
+            class="glass flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-95 sm:w-auto"
+          >
+            <span>See Saves ({savedCount || 0})</span>
+          </a>
+        </div>
+
+        <!-- Quick Crate jump links -->
+        <div class="mt-6 flex flex-col items-center gap-2">
+          <span class="text-[10px] font-semibold tracking-[0.2em] text-white/35 uppercase">
+            Jump to another vibe
+          </span>
+          <div class="flex flex-wrap items-center justify-center gap-1.5">
+            {#each quickGenres.filter((g) => g.slug !== data.categorySlug) as genre}
+              <a
+                href="/discover/{genre.slug}"
+                class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/75 transition-all hover:border-primary/50 hover:bg-white/10 hover:text-white active:scale-95"
+              >
+                {genre.name}
+              </a>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- ── Controls ───────────────────────────────────────── -->
@@ -340,7 +448,8 @@
       </div>
 
       <p class="text-[10px] font-semibold tracking-[0.22em] text-white/30 uppercase">
-        <span>swipe left to pass or right to save </span>
+        <span class="hidden sm:inline">← Pass &nbsp;·&nbsp; Space to Play &nbsp;·&nbsp; Save →</span>
+        <span class="sm:hidden">swipe left to pass or right to save</span>
       </p>
     </div>
   {/if}

@@ -2,7 +2,6 @@
   import { ArrowLeft, User, Library, LogOut } from 'lucide-svelte';
   import { fade, fly } from 'svelte/transition';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
   import { savedTracks } from '$lib/stores/savedTracks';
 
   let isHome = $derived($page.url.pathname === '/');
@@ -10,20 +9,20 @@
 
   let title = $derived.by(() => {
     if (isDiscover) {
+      if ($page.data?.categoryName) return $page.data.categoryName;
       const slug = $page.url.pathname.split('/').pop() || '';
+      if (slug === 'explore') return 'Explore';
+      if (slug === 'opm') return 'OPM Hits';
+      if (slug === 'k-pop') return 'K-Pop';
+      if (slug === 'j-pop') return 'J-Pop & Anime';
+      if (slug === 'r-n-b') return 'R&B Soul';
+      if (slug === 'lo-fi') return 'Lo-Fi Beats';
       return slug.replace(/-/g, ' ');
     }
     return 'HearMeOut';
   });
 
   let showDropdown = $state(false);
-
-  // Fixed hierarchy rather than browser history: discover -> categories -> home.
-  // history.back() was unpredictable on categories — landing there via a fresh
-  // tab/link/refresh (no prior HearMeOut entry) left it with nowhere useful to go.
-  function handleBack() {
-    goto(isDiscover ? '/categories' : '/');
-  }
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -37,14 +36,14 @@
     <!-- ── Back ─────────────────────────────────────────── -->
     <div class="pointer-events-auto flex flex-1 justify-start">
       {#if !isHome}
-        <button
-          onclick={handleBack}
+        <a
+          href={isDiscover ? '/categories' : '/'}
           aria-label="Go back"
           class="glass-strong grid h-11 w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/15 active:scale-90"
           in:fade={{ duration: 150 }}
         >
           <ArrowLeft size={22} />
-        </button>
+        </a>
       {/if}
     </div>
 
@@ -52,8 +51,8 @@
     {#if !isHome}
       <div class="pointer-events-auto flex max-w-[52%] flex-none justify-center">
         {#if isDiscover}
-          <button
-            onclick={() => goto('/categories')}
+          <a
+            href="/categories"
             class="glass-strong flex items-center rounded-full px-5 py-2.5 shadow-xl transition-colors hover:bg-white/10"
             in:fly={{ y: -8, duration: 220 }}
           >
@@ -65,7 +64,7 @@
             >
               {title}
             </span>
-          </button>
+          </a>
         {:else}
           <a
             href="/"

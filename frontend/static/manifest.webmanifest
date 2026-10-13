@@ -1,11 +1,18 @@
 {
-  "name": "HearMeOut — Music Discovery",
+  "id": "/",
+  "name": "HearMeOut — Music Discovery & Story Soundtracks",
   "short_name": "HearMeOut",
-  "description": "Swipe right on your next favourite song. Preview 30-second audio clips and export directly to Spotify.",
+  "description": "Find the perfect 30-second songs for your Instagram stories, reels, and playlists. Swipe right to save keepers straight to Spotify.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
+  "orientation": "portrait",
+  "dir": "ltr",
+  "lang": "en",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/favicon.svg",

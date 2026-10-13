@@ -85,7 +85,7 @@ export async function POST({ request, cookies }) {
         }
 
         for (const chunk of chunkedUris) {
-            const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/items`, {
+            const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

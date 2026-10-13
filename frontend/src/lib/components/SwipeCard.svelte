@@ -1,3 +1,8 @@
+<script module lang="ts">
+  // Shared client-side in-memory cache across card instances
+  const clientPreviewCache = new Map<string, string>();
+</script>
+
 <script lang="ts">
   import { Play, Heart, X, Hand } from 'lucide-svelte';
   import Equalizer from '$lib/components/Equalizer.svelte';
@@ -5,6 +10,7 @@
   let {
     track,
     isActive = false,
+    shouldPrefetch = false,
     /** Set by the parent to fling the card off-screen: 'left' | 'right' | null */
     exitDir = null,
     /** Fired the moment a gesture crosses the commit threshold */
@@ -17,6 +23,7 @@
   }: {
     track: any;
     isActive?: boolean;
+    shouldPrefetch?: boolean;
     exitDir?: 'left' | 'right' | null;
     onCommit: (dir: 'left' | 'right') => void;
     showHint?: boolean;
@@ -114,6 +121,10 @@
     if (dragged || (flicked && agrees && Math.abs(dx) > 24)) {
       onCommit(dx > 0 ? 'right' : 'left');
     } else {
+      const isTap = Math.abs(dx) < 6 && Math.abs(dy) < 6;
+      if (isTap && isFront && previewState === 'ready') {
+        togglePlay();
+      }
       dx = 0;
       dy = 0;
       liftAtRelease = 0;
@@ -147,27 +158,38 @@
   let isPlaying = $state(false);
   let isBuffering = $state(false);
   let needsTap = $state(false);
+  let currentTime = $state(0);
+  let duration = $state(30);
 
-  // Almost no track arrives from Spotify with a preview URL any more, so this
-  // starts 'pending' for nearly every card and gets resolved lazily below —
-  // only once a card is actually the one on top, not for the whole stack.
-  // Reading only the initial value of `track` is intentional: the parent's
-  // {#each ... (track.id)} keying means this component is destroyed and
-  // recreated if the track it's showing ever changes, never reused in place.
+  function formatTime(s: number) {
+    if (!s || isNaN(s) || !isFinite(s)) return '0:00';
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
   // svelte-ignore state_referenced_locally
-  let resolvedPreviewUrl = $state(track.previewUrl || '');
+  const cacheKey = `${track.title}::${track.artist}`.toLowerCase();
   // svelte-ignore state_referenced_locally
-  let previewState = $state<'ready' | 'pending' | 'none'>(track.previewUrl ? 'ready' : 'pending');
+  const cachedUrl = track.previewUrl || clientPreviewCache.get(cacheKey) || '';
+  // svelte-ignore state_referenced_locally
+  let resolvedPreviewUrl = $state(cachedUrl);
+  // svelte-ignore state_referenced_locally
+  let previewState = $state<'ready' | 'pending' | 'none'>(
+    cachedUrl ? 'ready' : clientPreviewCache.has(cacheKey) ? 'none' : 'pending'
+  );
   let fetchingPreview = false;
 
   $effect(() => {
-    if (!isActive || previewState !== 'pending' || fetchingPreview) return;
+    const shouldFetch = isActive || shouldPrefetch;
+    if (!shouldFetch || previewState !== 'pending' || fetchingPreview) return;
     fetchingPreview = true;
     fetch(
       `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`
     )
       .then((r) => (r.ok ? r.json() : { previewUrl: '' }))
       .then(({ previewUrl }) => {
+        clientPreviewCache.set(cacheKey, previewUrl || '');
         if (previewUrl) {
           resolvedPreviewUrl = previewUrl;
           previewState = 'ready';
@@ -188,24 +210,26 @@
     if (!audioEl) return;
 
     if (isActive && !exitDir) {
-      isBuffering = true;
+      if (audioEl.readyState < 3) {
+        isBuffering = true;
+      }
       audioEl
         .play()
         .then(() => {
           isPlaying = true;
           needsTap = false;
+          isBuffering = false;
         })
         .catch(() => {
-          // Autoplay blocked until the user interacts — nudge them instead
+          // Autoplay blocked until user interacts — nudge them instead
           isPlaying = false;
           needsTap = true;
-        })
-        .finally(() => {
           isBuffering = false;
         });
     } else {
       audioEl.pause();
       audioEl.currentTime = 0;
+      currentTime = 0;
       isPlaying = false;
       isBuffering = false;
     }
@@ -214,11 +238,12 @@
       if (audioEl) {
         audioEl.pause();
         audioEl.currentTime = 0;
+        currentTime = 0;
       }
     };
   });
 
-  function togglePlay() {
+  export function togglePlay() {
     if (!audioEl) return;
     if (isPlaying) {
       audioEl.pause();
@@ -234,9 +259,48 @@
     }
   }
 
+  function handleWindowKeydown(e: KeyboardEvent) {
+    if (!isActive || exitDir) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'k') {
+      e.preventDefault();
+      togglePlay();
+    }
+  }
+
+  let hasRetriedAudio = false;
+  function handleAudioError() {
+    isBuffering = false;
+    isPlaying = false;
+    if (!hasRetriedAudio && track?.title && track?.artist) {
+      hasRetriedAudio = true;
+      fetch(
+        `/api/preview?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&fresh=1`
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.previewUrl) {
+            resolvedPreviewUrl = data.previewUrl;
+            if (audioEl) {
+              audioEl.src = data.previewUrl;
+              audioEl.load();
+              if (isActive && !exitDir) {
+                audioEl.play().catch(() => {
+                  needsTap = true;
+                });
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
 </script>
 
-<svelte:window onresize={measure} />
+<svelte:window onresize={measure} onkeydown={handleWindowKeydown} />
 
 <div
   bind:this={cardEl}
@@ -328,7 +392,7 @@
   <!-- Nothing here truncates: long titles step down a size instead, so a
        "… - 2019 Remaster" suffix still wraps onto a second line in full. -->
   <div
-    class="pointer-events-none w-full px-1 pt-7 text-center transition-opacity duration-300 {isFront
+    class="pointer-events-none w-full px-1 pt-5 sm:pt-7 text-center transition-opacity duration-300 {isFront
       ? 'opacity-100'
       : 'opacity-0'}"
   >
@@ -347,9 +411,7 @@
         <button
           data-no-drag
           aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-          class="pointer-events-auto group relative flex items-center justify-center gap-2.5 px-3 py-1.5 transition-all duration-300 hover:scale-110 active:scale-90 cursor-pointer {needsTap
-            ? 'animate-pulse'
-            : ''}"
+          class="pointer-events-auto group relative flex flex-col items-center justify-center px-3 py-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           onpointerdown={(e) => e.stopPropagation()}
           onclick={(e) => {
             e.stopPropagation();
@@ -358,29 +420,51 @@
         >
           {#if isBuffering}
             <span
-              class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white "
+              class="block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white"
             ></span>
           {:else if isPlaying}
-            <Equalizer bars={8} playing class="h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+            <Equalizer bars={8} playing class="mt-5 h-6.5 w-14 sm:h-7 sm:w-16" color="#ffffff" glow />
+            <span class="mt-3 text-[11px] font-mono tabular-nums tracking-wider text-white/60">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
           {:else}
-            <div class="flex items-center gap-2 opacity-65 transition-opacity duration-300 group-hover:opacity-100">
+            <div class="flex items-center gap-2 opacity-80 transition-opacity duration-300 group-hover:opacity-100 mt-5">
               <Play size={15} fill="currentColor" class="text-white translate-x-px" />
               <Equalizer bars={8} playing={false} class="h-5 w-12 sm:h-5.5 sm:w-14" color="#ffffff" />
             </div>
+            {#if currentTime > 0}
+              <span class="mt-3 text-[11px] font-mono tabular-nums tracking-wider text-white/40">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            {/if}
           {/if}
         </button>
 
         <audio
           bind:this={audioEl}
           src={resolvedPreviewUrl}
-          preload={isActive ? 'auto' : 'none'}
-          onended={() => (isPlaying = false)}
+          preload={isActive || shouldPrefetch ? 'auto' : 'none'}
+          ontimeupdate={(e) => {
+            currentTime = (e.currentTarget as HTMLAudioElement).currentTime;
+          }}
+          onloadedmetadata={(e) => {
+            duration = (e.currentTarget as HTMLAudioElement).duration || 30;
+          }}
+          ondurationchange={(e) => {
+            duration = (e.currentTarget as HTMLAudioElement).duration || 30;
+          }}
+          onended={() => {
+            isPlaying = false;
+            currentTime = 0;
+          }}
           onwaiting={() => (isBuffering = true)}
           onplaying={() => {
             isBuffering = false;
             isPlaying = true;
+            needsTap = false;
           }}
           oncanplay={() => (isBuffering = false)}
+          onerror={handleAudioError}
         ></audio>
       {:else if previewState === 'pending'}
         <div class="flex items-center justify-center p-2">

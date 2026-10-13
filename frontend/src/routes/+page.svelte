@@ -5,13 +5,16 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import SEO from '$lib/components/SEO.svelte';
+  import { siteConfig, getCanonicalUrl } from '$lib/config/site';
 
   let { data } = $props();
 
   // Rotating tagline — replaces a single static line, so only one phrase is
   // ever on screen at a time
   const hooks = [
+    'Find the soundtrack for your next Instagram story.',
     'Discover new music with a swipe. Smash or Pass!',
+    'The perfect 30-second song for your photo dump or reel.',
     'Your next favourite song is one swipe away.',
     'Stop scrolling playlists. Start hearing music.',
     '30 seconds is all it takes to know.',
@@ -90,7 +93,7 @@
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       name: 'HearMeOut',
-      url: 'https://hearmeout.app',
+      url: siteConfig.url,
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'All',
       browserRequirements: 'Requires JavaScript. Requires HTML5.',
@@ -100,12 +103,12 @@
         priceCurrency: 'USD'
       },
       description:
-        'Swipe right on your next favourite song. Discover music by genre, preview 30s audio clips instantly, and export keepers directly to Spotify.',
+        'Find the soundtrack for your stories, reels, and daily rotation. Swipe right on 30-second audio previews, discover aesthetic tracks and fresh hits, and export keepers directly to Spotify.',
       featureList: [
-        '30-second audio previews',
-        'Swipe left or right music discovery',
+        '30-second audio previews for stories and reels',
+        'Swipe left or right song discovery',
         'Direct export to Spotify playlist',
-        'Curated genre crates'
+        'Curated genre and aesthetic mood crates'
       ],
       author: {
         '@type': 'Person',
@@ -116,12 +119,42 @@
       '@context': 'https://schema.org',
       '@type': 'WebSite',
       name: 'HearMeOut',
-      url: 'https://hearmeout.app',
+      url: siteConfig.url,
       potentialAction: {
         '@type': 'SearchAction',
-        target: 'https://hearmeout.app/discover/{search_term_string}',
+        target: `${getCanonicalUrl('/discover')}/{search_term_string}`,
         'query-input': 'required name=search_term_string'
       }
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'How do I find songs for my Instagram stories and reels on HearMeOut?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'HearMeOut lets you audition 30-second audio previews—the exact duration used for Instagram Stories and Reels. Pick a vibe or genre crate, listen instantly, swipe right on songs you love, and export them directly to your Spotify playlist.'
+          }
+        },
+        {
+          '@type': 'Question',
+          name: 'How does HearMeOut recommend new music?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Browse through curated crates ranging from OPM, Pop, and Indie to Lo-Fi, Workout, and Chill. Swipe right to save songs to your library or left to skip, auditioning 30-second clips without scrubbing.'
+          }
+        },
+        {
+          '@type': 'Question',
+          name: 'Can I export saved songs directly to Spotify?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes! Connect your Spotify account with one click to export your saved swipes into a custom Spotify playlist ready for listening or adding to your social media posts.'
+          }
+        }
+      ]
     }
   ];
 </script>
@@ -150,7 +183,7 @@
                animation-duration: {spot.dur}s; animation-delay: -{spot.delay}s;"
       >
         <div
-          class="aspect-square w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl shadow-black/80"
+          class="aspect-square w-full overflow-hidden rounded-md border border-white/10 shadow-2xl shadow-black/80"
           style="transform: rotate({spot.rot}deg);"
         >
           {#if cover}

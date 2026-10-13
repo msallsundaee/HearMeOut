@@ -3,6 +3,7 @@ User-agent: *
 Allow: /
 Allow: /categories
 Allow: /discover/
+Allow: /explore
 
 # Block crawling of internal API routes, user private libraries & session paths
 Disallow: /api/

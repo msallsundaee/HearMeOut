@@ -20,10 +20,18 @@ export interface Category {
 export const FALLBACK_CATEGORIES: Category[] = [
 	{
 		id: 11,
-		name: 'Discover',
-		slug: 'discover',
+		name: 'Explore',
+		slug: 'explore',
 		image: {
 			url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 12,
+		name: 'OPM Hits',
+		slug: 'opm',
+		image: {
+			url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop'
 		}
 	},
 	{
@@ -43,6 +51,14 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		}
 	},
 	{
+		id: 5,
+		name: 'R&B Soul',
+		slug: 'r-n-b',
+		image: {
+			url: 'https://plus.unsplash.com/premium_photo-1682124293900-54bea8ca7e9f?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
+		}
+	},
+	{
 		id: 3,
 		name: 'Indie Vibes',
 		slug: 'indie',
@@ -59,11 +75,35 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		}
 	},
 	{
-		id: 5,
-		name: 'R&B Soul',
-		slug: 'r-n-b',
+		id: 8,
+		name: 'K-Pop',
+		slug: 'k-pop',
 		image: {
-			url: 'https://plus.unsplash.com/premium_photo-1682124293900-54bea8ca7e9f?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
+			url: 'https://plus.unsplash.com/premium_photo-1664474898608-7537d5780e17?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
+		}
+	},
+	{
+		id: 13,
+		name: 'J-Pop & Anime',
+		slug: 'j-pop',
+		image: {
+			url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 14,
+		name: 'Latin Hits',
+		slug: 'latin',
+		image: {
+			url: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 15,
+		name: 'Afrobeats',
+		slug: 'afrobeats',
+		image: {
+			url: 'https://images.unsplash.com/photo-1543807535-eceef0bc6599?q=80&w=600&auto=format&fit=crop'
 		}
 	},
 	{
@@ -83,11 +123,35 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		}
 	},
 	{
-		id: 8,
-		name: 'K-Pop',
-		slug: 'k-pop',
+		id: 16,
+		name: 'Jazz & Blues',
+		slug: 'jazz',
 		image: {
-			url: 'https://plus.unsplash.com/premium_photo-1664474898608-7537d5780e17?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
+			url: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 17,
+		name: 'Lo-Fi Beats',
+		slug: 'lo-fi',
+		image: {
+			url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 18,
+		name: 'Metal & Heavy',
+		slug: 'metal',
+		image: {
+			url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=600&auto=format&fit=crop'
+		}
+	},
+	{
+		id: 19,
+		name: 'Classical & Acoustic',
+		slug: 'classical',
+		image: {
+			url: 'https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=600&auto=format&fit=crop'
 		}
 	},
 	{
@@ -129,7 +193,7 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
 
 	try {
 		const res = await fetch(`${env.PAYLOAD_API_URL}/categories`, {
-			signal: AbortSignal.timeout(1500)
+			signal: AbortSignal.timeout(700)
 		});
 		if (res.ok) {
 			const data = await res.json();
@@ -149,7 +213,9 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
 			}
 		}
 	} catch {
-		// Fallback gracefully without blocking
+		// Backend offline/slow: cache fallback for 2 mins so subsequent clicks are instantaneous
+		allCategoriesCache = FALLBACK_CATEGORIES;
+		allCategoriesExpires = Date.now() + 2 * 60 * 1000;
 	}
 
 	return FALLBACK_CATEGORIES;
@@ -160,31 +226,66 @@ export async function getAllCategories(fetch: typeof globalThis.fetch): Promise<
  * spotifyPlaylistId, so discovery can pull from a curated playlist instead
  * of a loose genre-keyword search.
  *
- * Uses an AbortSignal timeout (1.5s) so slow or sleeping backend cold-starts
- * never stall the user's page load.
+ * Uses a tight AbortSignal timeout (700ms) with failure caching so slow or sleeping
+ * backend cold-starts never stall navigation.
  */
 export async function getCategoryBySlug(slug: string, fetch: typeof globalThis.fetch) {
-	const cached = slugCache.get(slug);
+	const normalizedSlug = slug === 'discover' ? 'explore' : slug;
+	const cached = slugCache.get(normalizedSlug);
 	if (cached && Date.now() < cached.expires) {
 		return cached.doc;
 	}
 
+	const fallbackDoc = FALLBACK_CATEGORIES.find((c) => c.slug === normalizedSlug) ?? null;
+
 	if (!env.PAYLOAD_API_URL) {
-		return null;
+		return fallbackDoc;
 	}
 
 	try {
-		const url = `${env.PAYLOAD_API_URL}/categories?where[slug][equals]=${encodeURIComponent(slug)}&limit=1`;
+		const url = `${env.PAYLOAD_API_URL}/categories?where[slug][equals]=${encodeURIComponent(normalizedSlug)}&limit=1`;
 		const res = await fetch(url, {
-			signal: AbortSignal.timeout(1500)
+			signal: AbortSignal.timeout(700)
 		});
-		if (!res.ok) return null;
+		if (!res.ok) {
+			slugCache.set(normalizedSlug, { doc: fallbackDoc, expires: Date.now() + 2 * 60 * 1000 });
+			return fallbackDoc;
+		}
 		const data = await res.json();
-		const doc = data.docs?.[0] ?? null;
-		slugCache.set(slug, { doc, expires: Date.now() + CACHE_TTL_MS });
+		const doc = data.docs?.[0] ?? fallbackDoc;
+		slugCache.set(normalizedSlug, { doc, expires: Date.now() + CACHE_TTL_MS });
 		return doc;
 	} catch {
-		// Silently fallback without blocking SSR if Payload is asleep or down
-		return null;
+		// Silently fallback without blocking SSR and cache for 2 mins to prevent repetitive stalls
+		slugCache.set(normalizedSlug, { doc: fallbackDoc, expires: Date.now() + 2 * 60 * 1000 });
+		return fallbackDoc;
 	}
 }
+
+/**
+ * Returns a clean, human-readable display title for any category slug.
+ */
+export function formatCategoryTitle(slug: string): string {
+	const normalized = slug === 'discover' ? 'explore' : slug;
+	const match = FALLBACK_CATEGORIES.find((c) => c.slug === normalized);
+	if (match) return match.name;
+
+	const titleMap: Record<string, string> = {
+		'explore': 'Explore',
+		'opm': 'OPM Hits',
+		'k-pop': 'K-Pop',
+		'j-pop': 'J-Pop & Anime',
+		'r-n-b': 'R&B Soul',
+		'lo-fi': 'Lo-Fi Beats',
+		'hip-hop': 'Hip Hop / Rap',
+		'top-50': 'Top 50 Hits'
+	};
+
+	if (titleMap[normalized]) return titleMap[normalized];
+
+	return normalized
+		.split('-')
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(' ');
+}
+

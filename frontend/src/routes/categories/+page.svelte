@@ -1,11 +1,20 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { Play } from 'lucide-svelte';
+  import { Play, Search, X, Compass, Disc3 } from 'lucide-svelte';
   import Aurora from '$lib/components/Aurora.svelte';
   import SEO from '$lib/components/SEO.svelte';
   import { getCanonicalUrl } from '$lib/config/site';
 
   let { data } = $props();
+  let searchQuery = $state('');
+
+  let filteredCategories = $derived.by(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return data.categories;
+    return data.categories.filter((c: any) =>
+      c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+    );
+  });
 
   // Deterministic per-tile gradient so image-less categories still look designed
   const fallbacks = [
@@ -18,9 +27,9 @@
   let collectionSchema = $derived({
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Music Categories & Genres — HearMeOut',
+    name: 'Browse Music Crates & Vibes — Songs for Stories & Reels | HearMeOut',
     description:
-      'Explore music genres from Pop to Rock, Indie to Hip-Hop. Swipe and preview songs in your favorite category.',
+      'Explore music crates across Pop, Indie, Lo-Fi, OPM, Chill, and Workout. Audition 30-second clips to find the perfect songs for your Instagram stories, TikToks, and Spotify playlists.',
     url: getCanonicalUrl('/categories'),
     mainEntity: {
       '@type': 'ItemList',
@@ -37,12 +46,25 @@
     { name: 'Home', url: '/' },
     { name: 'Categories', url: '/categories' }
   ];
+
+  const categoryKeywords = [
+    'songs for instagram stories',
+    'music for reels',
+    'photo dump songs',
+    'aesthetic music genres',
+    'lo-fi songs for stories',
+    'indie songs for reels',
+    'opm songs for stories',
+    'music crates',
+    'swipe music preview'
+  ];
 </script>
 
 <SEO
-  title="Music Categories & Genres"
-  description="Explore music crates across Pop, Hip-Hop, Indie, Rock, EDM, and more. Preview 30-second clips and swipe to save your favorite songs."
+  title="Browse Music Crates & Vibes — Songs for Stories, Reels & Playlists"
+  description="Explore music crates across Pop, Indie, Lo-Fi, OPM, Chill, and Workout. Audition 30-second clips to find the perfect songs for your Instagram stories, TikToks, and Spotify playlists."
   pathname="/categories"
+  keywords={categoryKeywords}
   schema={collectionSchema}
   breadcrumbs={breadcrumbs}
 />
@@ -53,15 +75,39 @@
   <div
     class="relative z-10 mx-auto max-w-5xl px-4 pt-24 pb-[max(3rem,env(safe-area-inset-bottom))]"
   >
-    <div class="mb-8 flex items-center justify-between">
-      <h1 class="text-3xl font-black md:text-5xl">Categories</h1>
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-black md:text-5xl">Categories</h1>
+        <p class="mt-1 text-sm text-gray-400">
+          Showing {filteredCategories.length} {filteredCategories.length === 1 ? 'crate' : 'crates'}
+        </p>
+      </div>
+
+      <div class="relative w-full sm:w-72 md:w-80">
+        <Search class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={17} />
+        <input
+          type="text"
+          bind:value={searchQuery}
+          placeholder="Search genres & vibes..."
+          class="w-full rounded-full bg-white/10 border border-white/10 pl-11 pr-10 py-2.5 text-sm text-white placeholder-gray-400 backdrop-blur-md focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+        />
+        {#if searchQuery}
+          <button
+            onclick={() => (searchQuery = '')}
+            aria-label="Clear search"
+            class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        {/if}
+      </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-      {#each data.categories as category, i (category.slug)}
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+      {#each filteredCategories as category, i (category.slug)}
         <a
           href={`/discover/${category.slug}`}
-          class="group relative h-48 overflow-hidden rounded-3xl shadow-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20 active:scale-95"
+          class="group relative h-40 sm:h-48 overflow-hidden rounded-2xl sm:rounded-3xl shadow-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20 active:scale-95"
         >
           <div
             class="absolute inset-0 z-10 bg-linear-to-t from-black/90 via-black/30 to-transparent"
@@ -91,16 +137,82 @@
             <Play size={16} fill="currentColor" class="translate-x-px" />
           </div>
 
-          <div class="absolute bottom-4 left-4 z-20 pr-4">
-            <h3 class="text-xl font-bold tracking-tight text-white">{category.name}</h3>
+          <div class="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-20 pr-3 sm:pr-4">
+            <h3 class="text-base sm:text-lg md:text-xl font-bold tracking-tight text-white line-clamp-2">{category.name}</h3>
           </div>
         </a>
       {/each}
     </div>
 
-    {#if data.categories.length === 0}
-      <div class="glass rounded-3xl px-6 py-16 text-center">
-        <p class="text-gray-400">No categories yet — add some in the admin panel.</p>
+    {#if filteredCategories.length === 0 && data.categories.length > 0}
+      <div class="relative z-10 mx-auto my-10 flex w-full max-w-lg flex-col items-center px-2 text-center" in:fade>
+        <!-- Vinyl graphic with subtle neon aura -->
+        <div class="relative mb-5 flex items-center justify-center">
+          <div
+            class="absolute -inset-4 rounded-full bg-primary/20 blur-xl animate-pulse"
+            aria-hidden="true"
+          ></div>
+          <div
+            class="glass-strong relative flex h-20 w-20 items-center justify-center rounded-full border border-white/15 shadow-[0_0_35px_rgba(29,185,84,0.3)] sm:h-24 sm:w-24"
+          >
+            <Disc3
+              size={44}
+              class="text-primary animate-[spin_10s_linear_infinite]"
+              strokeWidth={1.75}
+            />
+            <div class="absolute h-3.5 w-3.5 rounded-full bg-background border-2 border-white/30"></div>
+          </div>
+        </div>
+
+        <!-- Pill badge -->
+        <div
+          class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-mono font-bold tracking-widest text-primary uppercase backdrop-blur-md"
+        >
+          <span>No Matches Found</span>
+        </div>
+
+        <h2 class="font-display text-2xl font-black tracking-tight text-white sm:text-3xl">
+          No crates found for “{searchQuery}”
+        </h2>
+        <p class="mt-2.5 max-w-sm text-sm leading-relaxed text-white/60">
+          We couldn’t find a crate matching that title. Try searching for Pop, Rock, OPM, or jump into Explore.
+        </p>
+
+        <!-- Action buttons -->
+        <div class="mt-6 flex w-full flex-col sm:flex-row items-center justify-center gap-2.5">
+          <button
+            onclick={() => (searchQuery = '')}
+            class="brand-gradient flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95 cursor-pointer"
+          >
+            <X size={16} />
+            <span>Clear Search</span>
+          </button>
+          <a
+            href="/discover/explore"
+            class="glass flex h-11 w-full sm:w-auto items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-95"
+          >
+            <Compass size={16} />
+            <span>Explore Songs</span>
+          </a>
+        </div>
+      </div>
+    {:else if data.categories.length === 0}
+      <div class="relative z-10 mx-auto my-12 flex max-w-lg flex-col items-center text-center" in:fade>
+        <div class="relative mb-5 flex items-center justify-center">
+          <div
+            class="glass-strong relative flex h-20 w-20 items-center justify-center rounded-full border border-white/15 shadow-[0_0_35px_rgba(29,185,84,0.3)] sm:h-24 sm:w-24"
+          >
+            <Disc3 size={44} class="text-primary animate-[spin_10s_linear_infinite]" strokeWidth={1.75} />
+            <div class="absolute h-3.5 w-3.5 rounded-full bg-background border-2 border-white/30"></div>
+          </div>
+        </div>
+        <div
+          class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-mono font-bold tracking-widest text-primary uppercase backdrop-blur-md"
+        >
+          <span>Catalog Offline</span>
+        </div>
+        <h2 class="font-display text-2xl font-black text-white">No categories available</h2>
+        <p class="mt-2 text-sm text-white/60">Our music crates are temporarily resting. Check back soon!</p>
       </div>
     {/if}
   </div>

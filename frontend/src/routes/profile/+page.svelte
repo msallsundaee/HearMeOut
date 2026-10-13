@@ -1,9 +1,26 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { User, Mail, Music, ChevronRight, Library, CheckCircle } from 'lucide-svelte';
+  import { invalidateAll } from '$app/navigation';
   import SEO from '$lib/components/SEO.svelte';
 
   let { data } = $props();
+  let isDisconnecting = $state(false);
+
+  async function disconnectSpotify() {
+    isDisconnecting = true;
+    try {
+      const res = await fetch('/api/auth/disconnect-spotify', { method: 'POST' });
+      if (res.ok) {
+        await invalidateAll();
+        data.hasSpotifyToken = false;
+      }
+    } catch (e) {
+      console.error('Failed to disconnect Spotify:', e);
+    } finally {
+      isDisconnecting = false;
+    }
+  }
 </script>
 
 <SEO
@@ -31,19 +48,24 @@
         </div>
         
         <div class="flex-1">
-          <h2 class="text-3xl font-bold text-white mb-1">{data.user?.name || 'HearMeOut User'}</h2>
+          <h2 class="text-3xl font-bold text-white mb-1">{data.user?.name || 'HearMeOut Explorer'}</h2>
           <div class="flex items-center text-gray-400">
             <Mail size={16} class="mr-2" />
-            {data.user?.email || 'No email associated'}
+            {data.user?.email || 'Guest Explorer (Saved to Local Storage)'}
           </div>
         </div>
       </div>
 
-      <div class="mt-8 flex gap-4">
+      <div class="mt-8 flex flex-col sm:flex-row gap-4">
         <a href="/saved" class="flex-1 bg-white text-black font-bold py-3 px-6 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
           <Library size={18} class="mr-2" />
           View Saved Tracks
         </a>
+        {#if !data.user}
+          <a href="/login" class="flex-1 bg-white/10 border border-white/10 text-white font-bold py-3 px-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
+            Sign In for Cloud Sync
+          </a>
+        {/if}
       </div>
     </div>
 
@@ -65,7 +87,13 @@
               <p class="text-sm text-green-400">Ready to export tracks</p>
             </div>
           </div>
-          <!-- Option to disconnect could go here if implemented -->
+          <button
+            onclick={disconnectSpotify}
+            disabled={isDisconnecting}
+            class="text-xs font-semibold px-4 py-2 rounded-full border border-red-500/30 text-red-400 hover:bg-red-500/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+          </button>
         </div>
       {:else}
         <div class="flex flex-col sm:flex-row items-center justify-between p-4 bg-black/50 border border-gray-800 rounded-2xl gap-4">
