@@ -6,6 +6,7 @@
 <script lang="ts">
   import { Play, Heart, X, Hand } from 'lucide-svelte';
   import Equalizer from '$lib/components/Equalizer.svelte';
+  import ExplicitBadge from '$lib/components/ExplicitBadge.svelte';
 
   let {
     track,
@@ -402,6 +403,9 @@
       {track.title}
     </h2>
     <p class="mt-0.5 text-sm font-medium break-words text-white/55 sm:text-base">
+      {#if track?.explicit}
+        <ExplicitBadge class="mr-1.5 -translate-y-px align-middle" />
+      {/if}
       {track.artist}
     </p>
 

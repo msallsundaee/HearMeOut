@@ -26,7 +26,10 @@ export async function GET({ url, fetch, setHeaders }) {
 	const staticPages = [
 		{ path: '/', priority: '1.0', changefreq: 'daily' },
 		{ path: '/categories', priority: '0.9', changefreq: 'daily' },
-		{ path: '/discover/explore', priority: '0.9', changefreq: 'daily' }
+		{ path: '/discover/explore', priority: '0.9', changefreq: 'daily' },
+		{ path: '/for/instagram-stories', priority: '0.9', changefreq: 'daily' },
+		{ path: '/for/photo-dumps', priority: '0.9', changefreq: 'daily' },
+		{ path: '/for/reels', priority: '0.9', changefreq: 'daily' }
 	];
 
 	const staticUrls = staticPages

@@ -18,6 +18,8 @@
   let tracks = $state([...data.tracks]);
   // svelte-ignore state_referenced_locally
   let loadedSlug = data.categorySlug;
+  // svelte-ignore state_referenced_locally
+  let seenSpotifyIds = new Set<string>((data.tracks || []).map((t: any) => t.spotifyId));
   let exiting = $state<{ id: string; dir: 'left' | 'right' } | null>(null);
   let history = $state<{ track: any; dir: 'left' | 'right' }[]>([]);
   let isLoadingMore = $state(false);
@@ -48,8 +50,31 @@
   });
   let categoryName = $derived(data.categorySlug.replace(/-/g, ' '));
 
+  function getStoredSeen(slug: string): Set<string> {
+    try {
+      const stored = sessionStorage.getItem(`hearmeout_seen_${slug}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch {}
+    return new Set<string>();
+  }
+
+  function saveStoredSeen(slug: string, ids: Set<string>) {
+    try {
+      const arr = Array.from(ids).slice(-100);
+      sessionStorage.setItem(`hearmeout_seen_${slug}`, JSON.stringify(arr));
+    } catch {}
+  }
+
   onMount(() => {
     showHint = !localStorage.getItem(HINT_KEY);
+    const stored = getStoredSeen(data.categorySlug);
+    stored.forEach((id) => seenSpotifyIds.add(id));
+    if (tracks.filter((t) => !stored.has(t.spotifyId)).length <= 4) {
+      fetchMoreTracks();
+    }
   });
 
   // SvelteKit reuses this component between genres, so the deck has to be
@@ -58,6 +83,9 @@
     if (data.categorySlug === loadedSlug) return;
     loadedSlug = data.categorySlug;
     tracks = [...data.tracks];
+    const stored = getStoredSeen(data.categorySlug);
+    seenSpotifyIds = new Set<string>((data.tracks || []).map((t: any) => t.spotifyId));
+    stored.forEach((id) => seenSpotifyIds.add(id));
     history = [];
     exiting = null;
     savedCount = 0;
@@ -68,19 +96,17 @@
     if (isLoadingMore) return;
     isLoadingMore = true;
     try {
-      const res = await fetch(`/api/tracks?slug=${data.categorySlug}`);
+      const excludeList = Array.from(seenSpotifyIds).slice(-60).join(',');
+      const res = await fetch(`/api/tracks?slug=${data.categorySlug}&exclude=${encodeURIComponent(excludeList)}`);
       if (res.ok) {
         const incoming = await res.json();
-        // Drop anything already in the deck or already judged. Keyed on
-        // spotifyId, not `id` — `id` is a fresh Math.random() string minted
-        // per fetch (see toAppTrack in spotify.ts), so the same Spotify track
-        // coming back on a later "load more" call never matched anything
-        // already seen, and kept silently re-entering the deck.
-        const seen = new Set([
-          ...tracks.map((t) => t.spotifyId),
-          ...history.map((h) => h.track.spotifyId)
-        ]);
-        tracks = [...tracks, ...incoming.filter((t: any) => !seen.has(t.spotifyId))];
+        const incomingArr = Array.isArray(incoming) ? incoming : [];
+        const fresh = incomingArr.filter(
+          (t: any) => t?.spotifyId && !seenSpotifyIds.has(t.spotifyId)
+        );
+        fresh.forEach((t: any) => seenSpotifyIds.add(t.spotifyId));
+        tracks = [...tracks, ...fresh];
+        saveStoredSeen(data.categorySlug, seenSpotifyIds);
       }
     } catch (e) {
       console.error('Failed to fetch more tracks', e);
@@ -92,6 +118,8 @@
     if (exiting || !front) return;
 
     const track = front;
+    seenSpotifyIds.add(track.spotifyId);
+    saveStoredSeen(data.categorySlug, seenSpotifyIds);
     exiting = { id: track.id, dir };
 
     if (showHint) {
@@ -213,14 +241,16 @@
     genre: isExplore ? 'Eclectic Music Mix' : formattedCategory,
     url: getCanonicalUrl(`/discover/${data.categorySlug}`),
     description: pageDescription,
-    track: tracks.slice(0, 10).map((t: any) => ({
+    track: tracks.slice(0, 15).map((t: any) => ({
       '@type': 'MusicRecording',
       name: t.title,
       byArtist: {
         '@type': 'MusicGroup',
         name: t.artist
       },
-      image: t.albumArt
+      image: t.albumArt,
+      duration: 'PT30S',
+      ...(t.previewUrl ? { audio: t.previewUrl } : {})
     }))
   });
 
@@ -263,6 +293,20 @@
       ? 'Explore Music & Discover Fresh Songs — Swipe & Preview on HearMeOut'
       : `Discover ${formattedCategory} Songs — Swipe & Preview on HearMeOut`}
   </h1>
+
+  <!-- ── Semantic Crawlable Track List for Search Engines & Accessibility ── -->
+  <section class="sr-only" aria-label="Curated {formattedCategory} Songs in this Crate">
+    <h2>Featured {formattedCategory} Tracklist</h2>
+    <ol>
+      {#each data.tracks as track}
+        <li>
+          <strong>{track.title}</strong> by <span>{track.artist}</span>
+          {#if track.explicit}<span> (Explicit)</span>{/if}
+          {#if track.album}<span> — {track.album}</span>{/if}
+        </li>
+      {/each}
+    </ol>
+  </section>
   <!-- ── Ambient backdrop, tinted by the front cover ────── -->
   <Aurora intensity={0.45} />
   {#if front}

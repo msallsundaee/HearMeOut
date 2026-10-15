@@ -4,6 +4,7 @@ Allow: /
 Allow: /categories
 Allow: /discover/
 Allow: /explore
+Allow: /for/
 
 # Block crawling of internal API routes, user private libraries & session paths
 Disallow: /api/
@@ -11,6 +12,12 @@ Disallow: /saved
 Disallow: /profile
 Disallow: /login
 Disallow: /register
+
+# Prevent crawl budget dilution on OAuth code and pagination query traps
+Disallow: /*?*code=
+Disallow: /*?*spotify_token=
+Disallow: /*?*offset=
+Disallow: /*?*state=
 
 # Friendly crawler rate limiting
 Crawl-delay: 1

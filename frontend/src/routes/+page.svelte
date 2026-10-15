@@ -379,6 +379,15 @@
   <footer
     class="relative z-10 flex shrink-0 flex-col items-center gap-3 border-t border-gray-800/60 px-4 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-center"
   >
+    <nav aria-label="Use Case Links" class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1.5 text-xs text-gray-400">
+      <a href="/for/instagram-stories" class="transition-colors hover:text-primary">Instagram Stories</a>
+      <span class="text-gray-700" aria-hidden="true">&middot;</span>
+      <a href="/for/photo-dumps" class="transition-colors hover:text-primary">Photo Dumps</a>
+      <span class="text-gray-700" aria-hidden="true">&middot;</span>
+      <a href="/for/reels" class="transition-colors hover:text-primary">Reels & TikToks</a>
+      <span class="text-gray-700" aria-hidden="true">&middot;</span>
+      <a href="/categories" class="transition-colors hover:text-primary">All Crates</a>
+    </nav>
     <p class="text-xs text-gray-500">
       &copy; {year} HearMeOut &middot; Developed by
       <span class="font-semibold text-gray-300">Bea Clarise</span>

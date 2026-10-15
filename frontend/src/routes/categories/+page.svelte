@@ -103,6 +103,29 @@
       </div>
     </div>
 
+    <!-- ── Creator Use-Case Quick Links ── -->
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+      <span class="text-xs font-semibold tracking-wider text-gray-400 uppercase">Curated For:</span>
+      <a
+        href="/for/instagram-stories"
+        class="rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary transition-all hover:bg-primary/20"
+      >
+        📸 Instagram Stories
+      </a>
+      <a
+        href="/for/photo-dumps"
+        class="rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs font-semibold text-gray-300 transition-all hover:border-white/20 hover:text-white"
+      >
+        🎞️ Photo Dumps
+      </a>
+      <a
+        href="/for/reels"
+        class="rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs font-semibold text-gray-300 transition-all hover:border-white/20 hover:text-white"
+      >
+        🔥 Reels & TikToks
+      </a>
+    </div>
+
     <div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
       {#each filteredCategories as category, i (category.slug)}
         <a
