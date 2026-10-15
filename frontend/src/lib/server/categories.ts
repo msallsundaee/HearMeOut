@@ -32,8 +32,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'opm',
 		image: {
 			url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX6f6tPkJ9ohD'
+		}
 	},
 	{
 		id: 1,
@@ -41,8 +40,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'pop',
 		image: {
 			url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DXcBWIGoYBM5M'
+		}
 	},
 	{
 		id: 2,
@@ -50,8 +48,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'hip-hop',
 		image: {
 			url: 'https://images.unsplash.com/photo-1508973379184-7517410fb0bc?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX0XUsuxWHRQd'
+		}
 	},
 	{
 		id: 5,
@@ -59,8 +56,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'r-n-b',
 		image: {
 			url: 'https://plus.unsplash.com/premium_photo-1682124293900-54bea8ca7e9f?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX4SBhb3fqApM'
+		}
 	},
 	{
 		id: 3,
@@ -68,8 +64,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'indie',
 		image: {
 			url: 'https://plus.unsplash.com/premium_photo-1682125768864-c80b650614f3?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX2Nc3B70tvx0'
+		}
 	},
 	{
 		id: 4,
@@ -77,8 +72,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'rock',
 		image: {
 			url: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DWXRqgorJj26U'
+		}
 	},
 	{
 		id: 8,
@@ -86,8 +80,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'k-pop',
 		image: {
 			url: 'https://plus.unsplash.com/premium_photo-1664474898608-7537d5780e17?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX9tPFwDMOaN1'
+		}
 	},
 	{
 		id: 13,
@@ -95,8 +88,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'j-pop',
 		image: {
 			url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DXdbXrPNafg9d'
+		}
 	},
 	{
 		id: 14,
@@ -104,8 +96,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'latin',
 		image: {
 			url: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX10zKzsJ2jva'
+		}
 	},
 	{
 		id: 15,
@@ -113,8 +104,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'afrobeats',
 		image: {
 			url: 'https://images.unsplash.com/photo-1543807535-eceef0bc6599?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX48TTZL62Yht'
+		}
 	},
 	{
 		id: 6,
@@ -122,8 +112,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'electronic',
 		image: {
 			url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX4dyzvuaRJ0n'
+		}
 	},
 	{
 		id: 7,
@@ -131,8 +120,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'country',
 		image: {
 			url: 'https://plus.unsplash.com/premium_photo-1737392495642-0827bfb98660?crop=entropy&cs=tinysrgb&fit=max&auto=format&q=80&w=600'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX1lVhptIYRda'
+		}
 	},
 	{
 		id: 16,
@@ -140,8 +128,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'jazz',
 		image: {
 			url: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DXbITWG1ZJKYt'
+		}
 	},
 	{
 		id: 17,
@@ -149,8 +136,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'lo-fi',
 		image: {
 			url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DXdLEN7aqioXM'
+		}
 	},
 	{
 		id: 18,
@@ -158,8 +144,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'metal',
 		image: {
 			url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX9qNs32fujYe'
+		}
 	},
 	{
 		id: 19,
@@ -167,8 +152,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'classical',
 		image: {
 			url: 'https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DWWEW2BkE9eSG'
+		}
 	},
 	{
 		id: 9,
@@ -176,8 +160,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'workout',
 		image: {
 			url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX76Wlfdnj7AP'
+		}
 	},
 	{
 		id: 10,
@@ -185,8 +168,7 @@ export const FALLBACK_CATEGORIES: Category[] = [
 		slug: 'chill',
 		image: {
 			url: 'https://images.unsplash.com/photo-1499364615650-ec38552f4f34?q=80&w=600&auto=format&fit=crop'
-		},
-		spotifyPlaylistId: '37i9dQZF1DX4WYpdgoIcn6'
+		}
 	}
 ];
 

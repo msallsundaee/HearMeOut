@@ -8,7 +8,12 @@ export async function GET({ url, cookies, fetch }) {
     const slug = rawSlug === 'discover' ? 'explore' : rawSlug;
 
     const excludeParam = url.searchParams.get('exclude') || '';
-    const excludeIds = new Set(excludeParam.split(',').map((s) => s.trim()).filter(Boolean));
+    const cookieRecent = cookies.get('hearmeout_recent_seen') || '';
+    const allExcludeStrings = [
+        ...excludeParam.split(','),
+        ...cookieRecent.split(',')
+    ].map((s) => s.trim()).filter(Boolean);
+    const excludeIds = new Set(allExcludeStrings);
 
     const categoryPlaylistId = slug === 'explore'
         ? undefined

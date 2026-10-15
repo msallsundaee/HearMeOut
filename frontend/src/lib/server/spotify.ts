@@ -1,7 +1,9 @@
 import { env } from '$env/dynamic/private';
+import { getFallbackTracksForGenre } from '$lib/server/fallbackTracks';
 
 let cachedClientToken: string | null = null;
 let tokenExpirationTime: number = 0;
+let rateLimitedUntil: number = 0;
 
 export async function getClientCredentialsToken(fetch: typeof globalThis.fetch) {
     if (cachedClientToken && Date.now() < tokenExpirationTime) {
@@ -164,6 +166,7 @@ function shuffleArray<T>(array: T[]): T[] {
  * configured.
  */
 const playlistTotalsCache = new Map<string, { total: number; expires: number }>();
+const failedPlaylistsCache = new Map<string, number>();
 
 export async function fetchTracksFromPlaylist(
     rawPlaylistId: string,
@@ -174,6 +177,17 @@ export async function fetchTracksFromPlaylist(
 ) {
     const playlistId = extractPlaylistId(rawPlaylistId);
     if (!playlistId) return [];
+
+    // Spotify systematically rejects official editorial playlists (37i9dQZF...)
+    // under Client Credentials flow with 404 Not Found.
+    if (playlistId.startsWith('37i9dQZF')) {
+        return [];
+    }
+
+    const failedUntil = failedPlaylistsCache.get(playlistId);
+    if (failedUntil && Date.now() < failedUntil) {
+        return [];
+    }
 
     try {
         let total = 0;
@@ -191,7 +205,8 @@ export async function fetchTracksFromPlaylist(
             if (metaRes.status === 401) return 401;
             if (metaRes.status === 429) return 429;
             if (!metaRes.ok) {
-                console.error(`Spotify playlist lookup failed: ${metaRes.status} (${playlistId})`);
+                failedPlaylistsCache.set(playlistId, Date.now() + 24 * 60 * 60 * 1000);
+                console.warn(`Spotify playlist unavailable (${metaRes.status}): ${playlistId}. Falling back to genre queries.`);
                 return [];
             }
 
@@ -278,30 +293,131 @@ export async function fetchTracksFromPlaylist(
     }
 }
 
-const GENRE_QUERY_POOLS: Record<string, string[]> = {
-    'opm': ['tagalog hits', 'pinoy pop', 'opm hits', 'pinoy rock', 'opm essentials'],
-    'pop': ['genre:pop', 'top pop hits', 'pop hits', 'billboard pop', 'pop essentials'],
-    'hip-hop': ['genre:hip-hop', 'genre:rap', 'hip hop hits', 'rap classics'],
-    'r-n-b': ['genre:r-n-b', 'r&b soul', 'contemporary r&b', 'r&b classics'],
-    'indie': ['genre:indie', 'genre:indie-pop', 'indie rock', 'bedroom pop'],
-    'rock': ['genre:rock', 'rock classics', 'modern rock', 'alt rock'],
-    'k-pop': ['genre:k-pop', 'kpop hits', 'korean pop', 'kpop girl group'],
-    'j-pop': ['genre:j-pop', 'j-pop hits', 'anime hits', 'japanese pop'],
-    'latin': ['genre:latin', 'genre:reggaeton', 'latin pop', 'musica latina'],
-    'afrobeats': ['genre:afrobeats', 'afrobeats hits', 'amapiano hits', 'afropop'],
-    'electronic': ['genre:edm', 'genre:house', 'dance electronic', 'electro house'],
-    'country': ['genre:country', 'country hits', 'modern country', 'country classics'],
-    'jazz': ['genre:jazz', 'jazz classics', 'smooth jazz', 'vocal jazz'],
-    'lo-fi': ['lofi beats', 'lo-fi chill', 'lofi study', 'chillhop beats'],
-    'metal': ['genre:metal', 'heavy metal', 'metalcore', 'thrash metal'],
-    'classical': ['genre:classical', 'classical essentials', 'orchestral classical', 'piano classical'],
-    'workout': ['workout hits', 'gym motivation hits', 'high energy workout beats', 'fitness music'],
-    'chill': ['chill hits', 'chill acoustic', 'chill lounge', 'acoustic chill']
+export const VERIFIED_GENRE_TAGS: Record<string, string[]> = {
+    'opm': [
+        'opm', 'pinoy pop', 'pinoy rock', 'pinoy indie', 'tagalog pop',
+        'pinoy reggae', 'pinoy trap', 'manila sound', 'tagalog worship', 'vispop'
+    ],
+    'pop': [
+        'pop', 'dance pop', 'synthpop', 'electropop', 'indie pop',
+        'art pop', 'post-teen pop', 'europop', 'hyperpop'
+    ],
+    'hip-hop': [
+        'hip hop', 'rap', 'trap', 'conscious hip hop', 'underground hip hop',
+        'east coast hip hop', 'west coast rap', 'southern hip hop', 'boom bap', 'melodic rap'
+    ],
+    'r-n-b': [
+        'r&b', 'contemporary r&b', 'soul', 'neo soul', 'urban contemporary',
+        'motown', 'quiet storm', 'classic soul', 'alternative r&b', 'indie r&b'
+    ],
+    'indie': [
+        'indie', 'indie rock', 'indie pop', 'bedroom pop', 'indie folk',
+        'lo-fi indie', 'modern alternative rock', 'dream pop', 'shoegaze', 'indie garage rock'
+    ],
+    'rock': [
+        'rock', 'classic rock', 'alternative rock', 'hard rock', 'modern rock',
+        'album rock', 'garage rock', 'psychedelic rock', 'indie rock', 'glam rock'
+    ],
+    'k-pop': [
+        'k-pop', 'korean pop', 'k-indie', 'k-r&b', 'k-rap',
+        'korean ost', 'k-rock', 'korean city pop'
+    ],
+    'j-pop': [
+        'j-pop', 'j-rock', 'japanese pop', 'japanese city pop', 'anime',
+        'j-indie', 'japanese alternative rock', 'j-acoustic'
+    ],
+    'latin': [
+        'latin', 'reggaeton', 'latin pop', 'urbano latino', 'trap latino',
+        'musica mexicana', 'latin alternative', 'bachata', 'salsa', 'cumbia'
+    ],
+    'afrobeats': [
+        'afrobeats', 'afropop', 'amapiano', 'nigerian pop', 'alte',
+        'afro dancehall', 'south african house', 'afro soul'
+    ],
+    'electronic': [
+        'electronic', 'edm', 'house', 'techno', 'synthwave',
+        'electro house', 'progressive house', 'deep house', 'future bass', 'drum and bass'
+    ],
+    'country': [
+        'country', 'contemporary country', 'country road', 'classic country',
+        'outlaw country', 'americana', 'bluegrass', 'country rock', 'texas country'
+    ],
+    'jazz': [
+        'jazz', 'vocal jazz', 'contemporary jazz', 'bebop', 'cool jazz',
+        'hard bop', 'jazz fusion', 'modal jazz', 'smooth jazz', 'bossa nova'
+    ],
+    'lo-fi': [
+        'lo-fi', 'lo-fi beats', 'chillhop', 'lo-fi study', 'lo-fi jazz',
+        'japanese lo-fi', 'bedroom lo-fi', 'lo-fi sleep'
+    ],
+    'metal': [
+        'metal', 'heavy metal', 'metalcore', 'thrash metal', 'death metal',
+        'alternative metal', 'nu metal', 'power metal', 'progressive metal', 'groove metal'
+    ],
+    'classical': [
+        'classical', 'baroque', 'romantic era', 'orchestral', 'classical piano',
+        'chamber orchestra', 'contemporary classical', 'opera'
+    ],
+    'workout': [
+        'workout', 'running', 'gym', 'high energy', 'edm',
+        'power workout', 'bass music', 'cardio'
+    ],
+    'chill': [
+        'chill', 'ambient', 'indie folk', 'acoustic', 'downtempo',
+        'meditation', 'chillout', 'slowed and reverb', 'folk-pop'
+    ]
 };
 
 const EXPLORE_GENRES = [
-    'pop', 'indie', 'r-n-b', 'afrobeats', 'hip-hop', 'latin', 'electronic', 'opm', 'k-pop', 'rock', 'chill'
+    'indie', 'r-n-b', 'afrobeats', 'hip-hop', 'latin', 'electronic', 'opm', 'k-pop', 'rock', 'chill', 'pop', 'jazz'
 ];
+
+/**
+ * Deduplicates tracks so that no artist appears more than once in the deck,
+ * guaranteeing maximum variety and preventing artist fatigue.
+ */
+function deduplicateArtistsAndTracks(
+    tracks: any[],
+    excludeIds?: Set<string>,
+    maxCount: number = 15
+): any[] {
+    const seenTrackIds = new Set<string>();
+    const seenArtists = new Set<string>();
+    const result: any[] = [];
+
+    for (const t of tracks) {
+        if (!t || !t.id) continue;
+        if (excludeIds && excludeIds.has(t.id)) continue;
+        if (seenTrackIds.has(t.id)) continue;
+
+        const primaryArtist = (t.artists?.[0]?.name || '').toLowerCase().trim();
+        if (primaryArtist && seenArtists.has(primaryArtist)) {
+            continue;
+        }
+
+        seenTrackIds.add(t.id);
+        if (primaryArtist) seenArtists.add(primaryArtist);
+        result.push(t);
+
+        if (result.length >= maxCount) break;
+    }
+
+    // If strict artist deduplication was too restrictive and yielded fewer than 10 tracks,
+    // fill remainder from unseen tracks
+    if (result.length < Math.min(10, tracks.length)) {
+        for (const t of tracks) {
+            if (!t || !t.id) continue;
+            if (excludeIds && excludeIds.has(t.id)) continue;
+            if (seenTrackIds.has(t.id)) continue;
+
+            seenTrackIds.add(t.id);
+            result.push(t);
+            if (result.length >= maxCount) break;
+        }
+    }
+
+    return result;
+}
 
 async function searchSingleQuery(
     q: string,
@@ -310,7 +426,10 @@ async function searchSingleQuery(
     accessToken: string,
     fetch: typeof globalThis.fetch
 ): Promise<any[] | 401 | 429> {
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${limit}&offset=${offset}`;
+    // Spotify strictly caps search limit <= 10 for standard Web API apps
+    const safeLimit = Math.min(10, Math.max(1, limit || 10));
+    const safeOffset = Math.min(990, Math.max(0, Math.floor(offset || 0)));
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=US&limit=${safeLimit}&offset=${safeOffset}`;
     try {
         const res = await fetch(url, {
             headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -319,20 +438,21 @@ async function searchSingleQuery(
         if (res.status === 401) return 401;
         if (res.status === 429) return 429;
         if (!res.ok) {
-            console.error(`Spotify API error for "${q}": ${res.status}`);
+            const errText = await res.text().catch(() => '');
+            console.error(`Spotify API error for "${q}" [status ${res.status}]: ${errText}`);
             return [];
         }
         const data = await res.json();
-        const items = (data.tracks?.items || []).filter((t: any) => t);
-        if (items.length === 0 && offset > 0) {
-            const fallbackUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=${limit}&offset=0`;
+        const items = (data.tracks?.items || []).filter((t: any) => t && t.id);
+        if (items.length === 0 && safeOffset > 0) {
+            const fallbackUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=US&limit=${safeLimit}&offset=0`;
             const fbRes = await fetch(fallbackUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` },
                 signal: AbortSignal.timeout(3000)
             });
             if (fbRes.ok) {
                 const fbData = await fbRes.json();
-                return (fbData.tracks?.items || []).filter((t: any) => t);
+                return (fbData.tracks?.items || []).filter((t: any) => t && t.id);
             }
         }
         return items;
@@ -348,102 +468,120 @@ export async function fetchSpotifyTracks(
     excludeIds?: Set<string>
 ) {
     if (slug === 'explore' || slug === 'discover' || slug === 'random') {
-        // Multi-genre eclectic discovery mix: sample across 4 distinct genres
-        const shuffledSlugs = shuffleArray([...EXPLORE_GENRES]).slice(0, 4);
-        const searchPromises = shuffledSlugs.map((s) => {
-            const pool = GENRE_QUERY_POOLS[s] || [s];
-            const q = pool[Math.floor(Math.random() * pool.length)];
-            const offset = Math.floor(Math.random() * 15);
-            return searchSingleQuery(q, 4, offset, accessToken, fetch);
+        // Multi-genre eclectic discovery mix across the global Spotify catalog:
+        // Samples 6 distinct verified genre tags from any artist
+        const allGenres = Object.keys(VERIFIED_GENRE_TAGS);
+        const shuffledGenres = shuffleArray(allGenres);
+        const tags1 = shuffledGenres.slice(0, 3).map((g) => {
+            const tags = VERIFIED_GENRE_TAGS[g];
+            return tags[Math.floor(Math.random() * tags.length)];
+        });
+        const tags2 = shuffledGenres.slice(3, 6).map((g) => {
+            const tags = VERIFIED_GENRE_TAGS[g];
+            return tags[Math.floor(Math.random() * tags.length)];
         });
 
-        const batchResults = await Promise.all(searchPromises);
+        const q1 = tags1.map((tag) => `genre:"${tag}"`).join(' OR ');
+        const q2 = tags2.map((tag) => `genre:"${tag}"`).join(' OR ');
+
+        const offset1 = Math.floor(Math.random() * 20);
+        const offset2 = Math.floor(Math.random() * 20);
+
+        const batchResults = await Promise.all([
+            searchSingleQuery(q1, 10, offset1, accessToken, fetch),
+            searchSingleQuery(q2, 10, offset2, accessToken, fetch)
+        ]);
+
         for (const res of batchResults) {
             if (res === 401 || res === 429) return res;
         }
 
-        const seen = new Set<string>();
-        let mixedItems: any[] = [];
+        const candidatePool: any[] = [];
         for (const res of batchResults) {
-            if (Array.isArray(res)) {
-                for (const t of res) {
-                    if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
-                        seen.add(t.id);
-                        mixedItems.push(t);
-                    }
-                }
-            }
+            if (Array.isArray(res)) candidatePool.push(...res);
         }
 
-        // If eclectic pool was too small, grab from additional distinct genres (never just pop!)
-        if (mixedItems.length < 10) {
-            const extraGenres = shuffleArray(EXPLORE_GENRES.filter((g) => !shuffledSlugs.includes(g))).slice(0, 3);
-            for (const eg of extraGenres) {
-                const pool = GENRE_QUERY_POOLS[eg] || [eg];
-                const q = pool[Math.floor(Math.random() * pool.length)];
-                const extraRes = await searchSingleQuery(q, 4, Math.floor(Math.random() * 10), accessToken, fetch);
-                if (Array.isArray(extraRes)) {
-                    for (const t of extraRes) {
-                        if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
-                            seen.add(t.id);
-                            mixedItems.push(t);
-                        }
-                    }
-                }
-            }
-        }
-
-        return shuffleArray(mixedItems).slice(0, 10).map(toAppTrack);
+        const finalTracks = deduplicateArtistsAndTracks(shuffleArray(candidatePool), excludeIds, 15);
+        return finalTracks.map(toAppTrack);
     }
 
-    let query: string;
     if (slug === 'top-50') {
-        const currentYear = new Date().getFullYear();
-        query = `year:${currentYear - 1}-${currentYear}`;
-        const offset = Math.floor(Math.random() * 25);
-        let items = await searchSingleQuery(query, 20, offset, accessToken, fetch);
-        if (items === 401 || items === 429) return items;
-        if (!Array.isArray(items)) return [];
-        let filtered = items.filter((t: any) => !excludeIds?.has(t.id));
-        return shuffleArray(filtered).slice(0, 10).map(toAppTrack);
+        const topGenres = ['pop', 'hip hop', 'reggaeton', 'contemporary r&b', 'dance pop'];
+        const shuffledTop = shuffleArray(topGenres);
+        const q1 = shuffledTop.slice(0, 2).map((t) => `genre:"${t}"`).join(' OR ');
+        const q2 = shuffledTop.slice(2, 4).map((t) => `genre:"${t}"`).join(' OR ');
+
+        const batchResults = await Promise.all([
+            searchSingleQuery(q1, 10, 0, accessToken, fetch),
+            searchSingleQuery(q2, 10, 0, accessToken, fetch)
+        ]);
+
+        for (const res of batchResults) {
+            if (res === 401 || res === 429) return res;
+        }
+
+        const candidatePool: any[] = [];
+        for (const res of batchResults) {
+            if (Array.isArray(res)) candidatePool.push(...res);
+        }
+
+        const finalTracks = deduplicateArtistsAndTracks(shuffleArray(candidatePool), excludeIds, 15);
+        return finalTracks.map(toAppTrack);
     }
 
-    const pool = GENRE_QUERY_POOLS[slug] || [slug.replace(/-/g, ' ')];
-    const shuffledPool = shuffleArray([...pool]);
-    const seen = new Set<string>();
-    let collected: any[] = [];
+    // Dynamic, verified genre discovery with NO artist whitelist:
+    // Any artist tagged with this genre in Spotify's worldwide music index can appear.
+    const genreTags = VERIFIED_GENRE_TAGS[slug] || [slug.replace(/-/g, ' ')];
+    const shuffledTags = shuffleArray([...genreTags]);
 
-    for (const q of shuffledPool) {
-        if (collected.length >= 20) break;
-        const offset = Math.floor(Math.random() * 20);
-        const res = await searchSingleQuery(q, 10, offset, accessToken, fetch);
+    // Pick 2-3 verified subgenre tags to blend in this batch
+    const tags1 = shuffledTags.slice(0, 2);
+    const tags2 = shuffledTags.slice(2, 4);
+
+    const q1 = tags1.map((tag) => `genre:"${tag}"`).join(' OR ');
+    const q2 = tags2.length > 0
+        ? tags2.map((tag) => `genre:"${tag}"`).join(' OR ')
+        : `genre:"${tags1[0]}"`;
+
+    // Vary offset across queries so each dig dives deeper into Spotify's catalog
+    const offset1 = Math.floor(Math.random() * 25);
+    const offset2 = Math.floor(Math.random() * 25);
+
+    const batchResults = await Promise.all([
+        searchSingleQuery(q1, 10, offset1, accessToken, fetch),
+        searchSingleQuery(q2, 10, offset2, accessToken, fetch)
+    ]);
+
+    for (const res of batchResults) {
         if (res === 401 || res === 429) return res;
+    }
+
+    const candidatePool: any[] = [];
+    for (const res of batchResults) {
         if (Array.isArray(res)) {
-            for (const t of res) {
-                if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
-                    seen.add(t.id);
-                    collected.push(t);
-                }
-            }
+            candidatePool.push(...res);
         }
     }
 
-    // Fallback: If still under 5 tracks, try offset 0 with this specific genre's primary query
-    if (collected.length < 5) {
-        const primaryQuery = pool[0];
-        const fbRes = await searchSingleQuery(primaryQuery, 10, 0, accessToken, fetch);
-        if (fbRes === 401 || fbRes === 429) return fbRes;
-        if (Array.isArray(fbRes)) {
-            for (const t of fbRes) {
-                if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
-                    seen.add(t.id);
-                    collected.push(t);
-                }
-            }
+    let finalTracks = deduplicateArtistsAndTracks(shuffleArray(candidatePool), excludeIds, 15);
+
+    // If candidate pool was small or user has swiped many tracks, query the next subgenre tags
+    if (finalTracks.length < 10 && shuffledTags.length > 4) {
+        const tags3 = shuffledTags.slice(4, 6);
+        const q3 = tags3.map((tag) => `genre:"${tag}"`).join(' OR ');
+        const extraRes = await searchSingleQuery(q3, 10, 0, accessToken, fetch);
+        if (Array.isArray(extraRes)) {
+            candidatePool.push(...extraRes);
         }
+        finalTracks = deduplicateArtistsAndTracks(shuffleArray(candidatePool), excludeIds, 15);
     }
 
-    return shuffleArray(collected).slice(0, 10).map(toAppTrack);
+    // Never dead-end: If still under 5 tracks (user swiped through entire genre), gracefully relax exclusion
+    if (finalTracks.length < 5) {
+        finalTracks = deduplicateArtistsAndTracks(shuffleArray(candidatePool), undefined, 15);
+    }
+
+    return finalTracks.map(toAppTrack);
 }
 
 export async function getTracksWithRetry(
@@ -457,9 +595,18 @@ export async function getTracksWithRetry(
     playlistId?: string | Promise<string | undefined>,
     excludeIds?: Set<string>
 ) {
+    // If Spotify is currently rate-limited, skip network roundtrips and serve fallback instantly
+    if (Date.now() < rateLimitedUntil) {
+        return getFallbackTracksForGenre(slug, excludeIds);
+    }
+
     let activeToken = token;
     if (!activeToken) {
         activeToken = await getClientCredentialsToken(fetch);
+    }
+
+    if (!activeToken) {
+        return getFallbackTracksForGenre(slug, excludeIds);
     }
 
     // Prefer the category's curated playlist when one is configured — falls
@@ -485,36 +632,29 @@ export async function getTracksWithRetry(
         return fetchSpotifyTracks(slug, activeToken, fetch, excludeIds);
     }
 
-    if (activeToken) {
-        let result = await attempt();
-        if (result === 401) {
-            cookies.delete('spotify_access_token', { path: '/' });
-            activeToken = await getClientCredentialsToken(fetch);
-            if (activeToken) {
-                result = await attempt();
-            }
-        }
-
-        if (result === 429) {
-            return [{
-                id: 'rate-limit',
-                spotifyId: 'rate-limit',
-                title: 'Spotify Rate Limit Hit 🛑',
-                artist: 'You swiped too fast! Wait a minute and refresh.',
-                albumArt: 'https://images.unsplash.com/photo-1559583109-3e7968136c99?q=80&w=800&auto=format&fit=crop',
-                previewUrl: '',
-                explicit: false
-            }];
-        }
-
-        // Quick single retry if first attempt was empty
-        if (Array.isArray(result) && result.length === 0 && token) {
+    let result = await attempt();
+    if (result === 401) {
+        cookies.delete('spotify_access_token', { path: '/' });
+        activeToken = await getClientCredentialsToken(fetch);
+        if (activeToken) {
             result = await attempt();
         }
-
-        if (Array.isArray(result)) {
-            return result;
-        }
     }
-    return [];
+
+    if (result === 429) {
+        rateLimitedUntil = Date.now() + 60 * 1000;
+        return getFallbackTracksForGenre(slug, excludeIds);
+    }
+
+    // Quick single retry if first attempt was empty
+    if (Array.isArray(result) && result.length === 0 && token) {
+        result = await attempt();
+    }
+
+    if (Array.isArray(result) && result.length > 0) {
+        return result;
+    }
+
+    // Graceful offline/empty crate fallback: always return curated, high-quality on-genre tracks
+    return getFallbackTracksForGenre(slug, excludeIds);
 }

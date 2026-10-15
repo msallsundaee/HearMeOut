@@ -50,9 +50,9 @@
   });
   let categoryName = $derived(data.categorySlug.replace(/-/g, ' '));
 
-  function getStoredSeen(slug: string): Set<string> {
+  function getStoredSeen(): Set<string> {
     try {
-      const stored = sessionStorage.getItem(`hearmeout_seen_${slug}`);
+      const stored = sessionStorage.getItem('hearmeout_seen_global');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) return new Set(parsed);
@@ -61,18 +61,22 @@
     return new Set<string>();
   }
 
-  function saveStoredSeen(slug: string, ids: Set<string>) {
+  function saveStoredSeen(ids: Set<string>) {
     try {
-      const arr = Array.from(ids).slice(-100);
-      sessionStorage.setItem(`hearmeout_seen_${slug}`, JSON.stringify(arr));
+      const arr = Array.from(ids).slice(-200);
+      sessionStorage.setItem('hearmeout_seen_global', JSON.stringify(arr));
+      // Save recent ~40 IDs into cookie so SSR load can exclude them on hard refresh
+      const recentIds = arr.slice(-40).join(',');
+      document.cookie = `hearmeout_recent_seen=${encodeURIComponent(recentIds)}; path=/; max-age=86400; SameSite=Lax`;
     } catch {}
   }
 
   onMount(() => {
     showHint = !localStorage.getItem(HINT_KEY);
-    const stored = getStoredSeen(data.categorySlug);
-    stored.forEach((id) => seenSpotifyIds.add(id));
-    if (tracks.filter((t) => !stored.has(t.spotifyId)).length <= 4) {
+    const globalSeen = getStoredSeen();
+    globalSeen.forEach((id) => seenSpotifyIds.add(id));
+    tracks = tracks.filter((t) => !globalSeen.has(t.spotifyId));
+    if (tracks.length <= 5) {
       fetchMoreTracks();
     }
   });
@@ -82,31 +86,36 @@
   $effect(() => {
     if (data.categorySlug === loadedSlug) return;
     loadedSlug = data.categorySlug;
-    tracks = [...data.tracks];
-    const stored = getStoredSeen(data.categorySlug);
-    seenSpotifyIds = new Set<string>((data.tracks || []).map((t: any) => t.spotifyId));
-    stored.forEach((id) => seenSpotifyIds.add(id));
+    const globalSeen = getStoredSeen();
+    seenSpotifyIds = new Set<string>(globalSeen);
+    tracks = (data.tracks || []).filter((t: any) => !globalSeen.has(t.spotifyId));
     history = [];
     exiting = null;
     savedCount = 0;
     isLoadingMore = false;
+    if (tracks.length <= 5) {
+      fetchMoreTracks();
+    }
   });
 
   async function fetchMoreTracks() {
     if (isLoadingMore) return;
     isLoadingMore = true;
     try {
-      const excludeList = Array.from(seenSpotifyIds).slice(-60).join(',');
+      const excludeList = Array.from(seenSpotifyIds).slice(-100).join(',');
       const res = await fetch(`/api/tracks?slug=${data.categorySlug}&exclude=${encodeURIComponent(excludeList)}`);
       if (res.ok) {
         const incoming = await res.json();
         const incomingArr = Array.isArray(incoming) ? incoming : [];
+        const existingIds = new Set(tracks.map((t: any) => t.spotifyId));
         const fresh = incomingArr.filter(
-          (t: any) => t?.spotifyId && !seenSpotifyIds.has(t.spotifyId)
+          (t: any) => t?.spotifyId && !seenSpotifyIds.has(t.spotifyId) && !existingIds.has(t.spotifyId)
         );
-        fresh.forEach((t: any) => seenSpotifyIds.add(t.spotifyId));
-        tracks = [...tracks, ...fresh];
-        saveStoredSeen(data.categorySlug, seenSpotifyIds);
+        if (fresh.length > 0) {
+          tracks = [...tracks, ...fresh];
+        } else if (tracks.length === 0 && incomingArr.length > 0) {
+          tracks = incomingArr.filter((t: any) => t?.spotifyId && !existingIds.has(t.spotifyId));
+        }
       }
     } catch (e) {
       console.error('Failed to fetch more tracks', e);
@@ -114,12 +123,21 @@
     isLoadingMore = false;
   }
 
+  function resetCrate() {
+    seenSpotifyIds.clear();
+    try {
+      sessionStorage.removeItem('hearmeout_seen_global');
+      document.cookie = 'hearmeout_recent_seen=; path=/; max-age=0; SameSite=Lax';
+    } catch {}
+    fetchMoreTracks();
+  }
+
   function commit(dir: 'left' | 'right') {
     if (exiting || !front) return;
 
     const track = front;
     seenSpotifyIds.add(track.spotifyId);
-    saveStoredSeen(data.categorySlug, seenSpotifyIds);
+    saveStoredSeen(seenSpotifyIds);
     exiting = { id: track.id, dir };
 
     if (showHint) {
@@ -146,7 +164,7 @@
       tracks = tracks.filter((t) => t.id !== track.id);
       history = [{ track, dir }, ...history].slice(0, 20);
       exiting = null;
-      if (tracks.length <= 4) fetchMoreTracks();
+      if (tracks.length <= 5) fetchMoreTracks();
     }, EXIT_MS);
   }
 
@@ -420,9 +438,16 @@
 
         <!-- Action buttons -->
         <div class="mt-6 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
+          <button
+            onclick={resetCrate}
+            class="brand-gradient flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95 sm:w-auto cursor-pointer"
+          >
+            <RotateCcw size={16} />
+            <span>Dig Again</span>
+          </button>
           <a
             href="/categories"
-            class="brand-gradient flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03] active:scale-95 sm:w-auto"
+            class="glass flex h-11 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-bold text-white transition-all hover:bg-white/15 active:scale-95 sm:w-auto"
           >
             <Disc3 size={16} />
             <span>Browse Crates</span>
