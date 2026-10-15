@@ -142,8 +142,18 @@ function toAppTrack(t: any) {
         artist,
         albumArt: t.album?.images?.[0]?.url,
         previewUrl: t.preview_url || '',
-        duration_ms: t.duration_ms || 0
+        duration_ms: t.duration_ms || 0,
+        explicit: Boolean(t.explicit)
     };
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
 }
 
 /**
@@ -158,7 +168,9 @@ const playlistTotalsCache = new Map<string, { total: number; expires: number }>(
 export async function fetchTracksFromPlaylist(
     rawPlaylistId: string,
     accessToken: string,
-    fetch: typeof globalThis.fetch
+    fetch: typeof globalThis.fetch,
+    excludeIds?: Set<string>,
+    slug?: string
 ) {
     const playlistId = extractPlaylistId(rawPlaylistId);
     if (!playlistId) return [];
@@ -188,10 +200,13 @@ export async function fetchTracksFromPlaylist(
             playlistTotalsCache.set(playlistId, { total, expires: Date.now() + 2 * 60 * 60 * 1000 });
         }
 
-        const offset = total > 10 ? Math.floor(Math.random() * (total - 10)) : 0;
+        // Fetch a broad 50-track window from the playlist
+        const fetchLimit = Math.min(50, Math.max(10, total || 50));
+        const maxOffset = Math.max(0, total - fetchLimit);
+        const offset = maxOffset > 0 ? Math.floor(Math.random() * maxOffset) : 0;
 
         const tracksRes = await fetch(
-            `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=10&offset=${offset}&fields=items(track(id,name,type,artists(id,name),album(images),duration_ms,preview_url))`,
+            `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${fetchLimit}&offset=${offset}&fields=items(track(id,name,type,explicit,artists(id,name),album(images),duration_ms,preview_url))`,
             {
                 headers: { Authorization: `Bearer ${accessToken}` },
                 signal: AbortSignal.timeout(4000)
@@ -205,13 +220,58 @@ export async function fetchTracksFromPlaylist(
         }
 
         const data = await tracksRes.json();
-        // Playlists can contain removed tracks (null) or local files/episodes
-        // that don't carry the fields we need
         const items = (data.items || [])
             .map((i: any) => i.track)
             .filter((t: any) => t && t.type === 'track' && t.id);
 
-        return items.map(toAppTrack);
+        let filtered = items;
+        if (excludeIds && excludeIds.size > 0) {
+            filtered = items.filter((t: any) => !excludeIds.has(t.id));
+        }
+
+        // If the random window had too many excluded/duplicate tracks and offset > 0,
+        // grab another slice from offset 0
+        if (filtered.length < 10 && offset > 0) {
+            const fallbackRes = await fetch(
+                `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${fetchLimit}&offset=0&fields=items(track(id,name,type,explicit,artists(id,name),album(images),duration_ms,preview_url))`,
+                {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    signal: AbortSignal.timeout(4000)
+                }
+            );
+            if (fallbackRes.ok) {
+                const fbData = await fallbackRes.json();
+                const fbItems = (fbData.items || [])
+                    .map((i: any) => i.track)
+                    .filter((t: any) => t && t.type === 'track' && t.id);
+                const seenIds = new Set(filtered.map((t: any) => t.id));
+                for (const t of fbItems) {
+                    if (!seenIds.has(t.id) && (!excludeIds || !excludeIds.has(t.id))) {
+                        filtered.push(t);
+                    }
+                }
+            }
+        }
+
+        // If still fewer than 10 unseen tracks (e.g. playlist is small and user swiped most of it),
+        // supplement with search queries for this genre so the crate never dead-ends
+        if (filtered.length < 10 && slug) {
+            const searchSupplement = await fetchSpotifyTracks(slug, accessToken, fetch, excludeIds);
+            if (Array.isArray(searchSupplement) && searchSupplement.length > 0) {
+                const combined = [...shuffleArray(filtered).map(toAppTrack), ...searchSupplement];
+                const finalSeen = new Set<string>();
+                const deduped: any[] = [];
+                for (const t of combined) {
+                    if (!finalSeen.has(t.spotifyId)) {
+                        finalSeen.add(t.spotifyId);
+                        deduped.push(t);
+                    }
+                }
+                return deduped.slice(0, 10);
+            }
+        }
+
+        return shuffleArray(filtered).slice(0, 10).map(toAppTrack);
     } catch (e) {
         console.error('Error fetching playlist tracks:', e);
         return [];
@@ -219,24 +279,24 @@ export async function fetchTracksFromPlaylist(
 }
 
 const GENRE_QUERY_POOLS: Record<string, string[]> = {
-    'opm': ['opm', 'tagalog hits', 'pinoy pop', 'opm love songs', 'pinoy rock'],
-    'pop': ['top pop hits', 'pop hits', 'pop classics', 'billboard pop'],
-    'hip-hop': ['hip hop', 'rap hits', '90s hip hop', 'hip hop classics'],
-    'r-n-b': ['r&b soul', 'contemporary r&b', '90s r&b', 'r&b classics'],
-    'indie': ['indie pop', 'indie rock', 'indie vibes', 'bedroom pop'],
-    'rock': ['rock classics', 'modern rock', 'alt rock', 'hard rock'],
-    'k-pop': ['kpop hits', 'k-pop', 'korean pop', 'kpop girl group'],
-    'j-pop': ['j-pop', 'jpop anime', 'japanese pop', 'city pop japan'],
-    'latin': ['reggaeton', 'latin pop', 'musica latina', 'bachata hits'],
-    'afrobeats': ['afrobeats', 'afrobeats hits', 'amapiano hits', 'afropop'],
-    'electronic': ['edm hits', 'house music', 'dance electronic', 'electro house'],
-    'country': ['country hits', 'modern country', 'country classics'],
-    'jazz': ['jazz classics', 'smooth jazz', 'vocal jazz', 'blue note jazz'],
-    'lo-fi': ['lofi chill', 'lo-fi beats', 'lofi study', 'chillhop'],
-    'metal': ['heavy metal', 'metalcore', 'metal hits', 'thrash metal'],
-    'classical': ['classical essentials', 'beethoven chopin', 'orchestral classical', 'piano classical'],
-    'workout': ['workout motivation', 'gym pump hits', 'high energy workout'],
-    'chill': ['chill acoustic', 'chill lounge', 'relaxing acoustic hits', 'acoustic chill']
+    'opm': ['tagalog hits', 'pinoy pop', 'opm hits', 'pinoy rock', 'opm essentials'],
+    'pop': ['genre:pop', 'top pop hits', 'pop hits', 'billboard pop', 'pop essentials'],
+    'hip-hop': ['genre:hip-hop', 'genre:rap', 'hip hop hits', 'rap classics'],
+    'r-n-b': ['genre:r-n-b', 'r&b soul', 'contemporary r&b', 'r&b classics'],
+    'indie': ['genre:indie', 'genre:indie-pop', 'indie rock', 'bedroom pop'],
+    'rock': ['genre:rock', 'rock classics', 'modern rock', 'alt rock'],
+    'k-pop': ['genre:k-pop', 'kpop hits', 'korean pop', 'kpop girl group'],
+    'j-pop': ['genre:j-pop', 'j-pop hits', 'anime hits', 'japanese pop'],
+    'latin': ['genre:latin', 'genre:reggaeton', 'latin pop', 'musica latina'],
+    'afrobeats': ['genre:afrobeats', 'afrobeats hits', 'amapiano hits', 'afropop'],
+    'electronic': ['genre:edm', 'genre:house', 'dance electronic', 'electro house'],
+    'country': ['genre:country', 'country hits', 'modern country', 'country classics'],
+    'jazz': ['genre:jazz', 'jazz classics', 'smooth jazz', 'vocal jazz'],
+    'lo-fi': ['lofi beats', 'lo-fi chill', 'lofi study', 'chillhop beats'],
+    'metal': ['genre:metal', 'heavy metal', 'metalcore', 'thrash metal'],
+    'classical': ['genre:classical', 'classical essentials', 'orchestral classical', 'piano classical'],
+    'workout': ['workout hits', 'gym motivation hits', 'high energy workout beats', 'fitness music'],
+    'chill': ['chill hits', 'chill acoustic', 'chill lounge', 'acoustic chill']
 };
 
 const EXPLORE_GENRES = [
@@ -281,19 +341,20 @@ async function searchSingleQuery(
     }
 }
 
-export async function fetchSpotifyTracks(slug: string, accessToken: string, fetch: typeof globalThis.fetch) {
+export async function fetchSpotifyTracks(
+    slug: string,
+    accessToken: string,
+    fetch: typeof globalThis.fetch,
+    excludeIds?: Set<string>
+) {
     if (slug === 'explore' || slug === 'discover' || slug === 'random') {
-        // Multi-genre eclectic discovery mix: sample across 3 distinct genres
-        const shuffledSlugs = [...EXPLORE_GENRES].sort(() => Math.random() - 0.5).slice(0, 3);
-        const subQueries = shuffledSlugs.map((s) => {
+        // Multi-genre eclectic discovery mix: sample across 4 distinct genres
+        const shuffledSlugs = shuffleArray([...EXPLORE_GENRES]).slice(0, 4);
+        const searchPromises = shuffledSlugs.map((s) => {
             const pool = GENRE_QUERY_POOLS[s] || [s];
-            return pool[Math.floor(Math.random() * pool.length)];
-        });
-
-        const limits = [4, 3, 3];
-        const searchPromises = subQueries.map((q, i) => {
-            const offset = Math.floor(Math.random() * 12);
-            return searchSingleQuery(q, limits[i], offset, accessToken, fetch);
+            const q = pool[Math.floor(Math.random() * pool.length)];
+            const offset = Math.floor(Math.random() * 15);
+            return searchSingleQuery(q, 4, offset, accessToken, fetch);
         });
 
         const batchResults = await Promise.all(searchPromises);
@@ -306,7 +367,7 @@ export async function fetchSpotifyTracks(slug: string, accessToken: string, fetc
         for (const res of batchResults) {
             if (Array.isArray(res)) {
                 for (const t of res) {
-                    if (t && t.id && !seen.has(t.id)) {
+                    if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
                         seen.add(t.id);
                         mixedItems.push(t);
                     }
@@ -314,43 +375,75 @@ export async function fetchSpotifyTracks(slug: string, accessToken: string, fetc
             }
         }
 
-        if (mixedItems.length < 5) {
-            const fbRes = await searchSingleQuery('top pop hits', 10, 0, accessToken, fetch);
-            if (fbRes === 401 || fbRes === 429) return fbRes;
-            if (Array.isArray(fbRes)) {
-                for (const t of fbRes) {
-                    if (t && t.id && !seen.has(t.id)) {
-                        seen.add(t.id);
-                        mixedItems.push(t);
+        // If eclectic pool was too small, grab from additional distinct genres (never just pop!)
+        if (mixedItems.length < 10) {
+            const extraGenres = shuffleArray(EXPLORE_GENRES.filter((g) => !shuffledSlugs.includes(g))).slice(0, 3);
+            for (const eg of extraGenres) {
+                const pool = GENRE_QUERY_POOLS[eg] || [eg];
+                const q = pool[Math.floor(Math.random() * pool.length)];
+                const extraRes = await searchSingleQuery(q, 4, Math.floor(Math.random() * 10), accessToken, fetch);
+                if (Array.isArray(extraRes)) {
+                    for (const t of extraRes) {
+                        if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
+                            seen.add(t.id);
+                            mixedItems.push(t);
+                        }
                     }
                 }
             }
         }
 
-        mixedItems = mixedItems.sort(() => Math.random() - 0.5);
-        return mixedItems.map(toAppTrack);
+        return shuffleArray(mixedItems).slice(0, 10).map(toAppTrack);
     }
 
     let query: string;
     if (slug === 'top-50') {
         const currentYear = new Date().getFullYear();
         query = `year:${currentYear - 1}-${currentYear}`;
-    } else {
-        const pool = GENRE_QUERY_POOLS[slug];
-        if (pool && pool.length > 0) {
-            query = pool[Math.floor(Math.random() * pool.length)];
-        } else {
-            query = slug.replace(/-/g, ' ');
+        const offset = Math.floor(Math.random() * 25);
+        let items = await searchSingleQuery(query, 20, offset, accessToken, fetch);
+        if (items === 401 || items === 429) return items;
+        if (!Array.isArray(items)) return [];
+        let filtered = items.filter((t: any) => !excludeIds?.has(t.id));
+        return shuffleArray(filtered).slice(0, 10).map(toAppTrack);
+    }
+
+    const pool = GENRE_QUERY_POOLS[slug] || [slug.replace(/-/g, ' ')];
+    const shuffledPool = shuffleArray([...pool]);
+    const seen = new Set<string>();
+    let collected: any[] = [];
+
+    for (const q of shuffledPool) {
+        if (collected.length >= 20) break;
+        const offset = Math.floor(Math.random() * 20);
+        const res = await searchSingleQuery(q, 10, offset, accessToken, fetch);
+        if (res === 401 || res === 429) return res;
+        if (Array.isArray(res)) {
+            for (const t of res) {
+                if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
+                    seen.add(t.id);
+                    collected.push(t);
+                }
+            }
         }
     }
 
-    const initialOffset = Math.floor(Math.random() * 20);
-    let items = await searchSingleQuery(query, 10, initialOffset, accessToken, fetch);
-    if (items === 401 || items === 429) return items;
+    // Fallback: If still under 5 tracks, try offset 0 with this specific genre's primary query
+    if (collected.length < 5) {
+        const primaryQuery = pool[0];
+        const fbRes = await searchSingleQuery(primaryQuery, 10, 0, accessToken, fetch);
+        if (fbRes === 401 || fbRes === 429) return fbRes;
+        if (Array.isArray(fbRes)) {
+            for (const t of fbRes) {
+                if (t && t.id && !seen.has(t.id) && !excludeIds?.has(t.id)) {
+                    seen.add(t.id);
+                    collected.push(t);
+                }
+            }
+        }
+    }
 
-    if (!Array.isArray(items)) return [];
-    items = items.sort(() => Math.random() - 0.5);
-    return items.map(toAppTrack);
+    return shuffleArray(collected).slice(0, 10).map(toAppTrack);
 }
 
 export async function getTracksWithRetry(
@@ -361,7 +454,8 @@ export async function getTracksWithRetry(
     // Accepts a promise so the caller can kick off the category (Payload)
     // lookup at the same time as this function's own token fetch below,
     // instead of the two chaining into two sequential round trips.
-    playlistId?: string | Promise<string | undefined>
+    playlistId?: string | Promise<string | undefined>,
+    excludeIds?: Set<string>
 ) {
     let activeToken = token;
     if (!activeToken) {
@@ -373,13 +467,22 @@ export async function getTracksWithRetry(
     // rather than showing nothing.
     async function attempt() {
         if (!activeToken) return [];
-        const resolvedPlaylistId = await playlistId;
-        if (resolvedPlaylistId) {
-            const fromPlaylist = await fetchTracksFromPlaylist(resolvedPlaylistId, activeToken, fetch);
-            if (fromPlaylist === 401 || fromPlaylist === 429) return fromPlaylist;
-            if (Array.isArray(fromPlaylist) && fromPlaylist.length > 0) return fromPlaylist;
+        // Explore is always eclectic multi-genre discovery
+        if (slug !== 'explore' && slug !== 'discover' && slug !== 'random') {
+            const resolvedPlaylistId = await playlistId;
+            if (resolvedPlaylistId) {
+                const fromPlaylist = await fetchTracksFromPlaylist(
+                    resolvedPlaylistId,
+                    activeToken,
+                    fetch,
+                    excludeIds,
+                    slug
+                );
+                if (fromPlaylist === 401 || fromPlaylist === 429) return fromPlaylist;
+                if (Array.isArray(fromPlaylist) && fromPlaylist.length > 0) return fromPlaylist;
+            }
         }
-        return fetchSpotifyTracks(slug, activeToken, fetch);
+        return fetchSpotifyTracks(slug, activeToken, fetch, excludeIds);
     }
 
     if (activeToken) {
@@ -399,7 +502,8 @@ export async function getTracksWithRetry(
                 title: 'Spotify Rate Limit Hit 🛑',
                 artist: 'You swiped too fast! Wait a minute and refresh.',
                 albumArt: 'https://images.unsplash.com/photo-1559583109-3e7968136c99?q=80&w=800&auto=format&fit=crop',
-                previewUrl: ''
+                previewUrl: '',
+                explicit: false
             }];
         }
 

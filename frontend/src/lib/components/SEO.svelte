@@ -45,7 +45,7 @@
 			: 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1'
 	);
 
-	let mergedSchemas = $derived(() => {
+	let mergedSchemas = $derived.by(() => {
 		const list: Record<string, any>[] = [];
 
 		if (breadcrumbs && breadcrumbs.length > 0) {
@@ -108,7 +108,7 @@
 	<meta name="twitter:image:alt" content={imageAlt} />
 
 	<!-- JSON-LD Structured Data for Google Rich Snippets -->
-	{#each mergedSchemas() as s}
+	{#each mergedSchemas as s}
 		{@html `<script type="application/ld+json">${JSON.stringify(s)}</script>`}
 	{/each}
 </svelte:head>

@@ -4,6 +4,7 @@
   import { Music, Check, ArrowRight, Trash2, Library, Play, Pause, Loader2, Disc3, Compass } from 'lucide-svelte';
   import SEO from '$lib/components/SEO.svelte';
   import Aurora from '$lib/components/Aurora.svelte';
+  import ExplicitBadge from '$lib/components/ExplicitBadge.svelte';
 
   let { data } = $props();
 
@@ -338,7 +339,12 @@
             <!-- Track Info -->
             <div class="flex-1 min-w-0">
               <h3 class="font-bold text-lg truncate text-white">{track.title}</h3>
-              <p class="text-gray-400 truncate">{track.artist}</p>
+              <p class="text-gray-400 truncate flex items-center gap-1.5 text-sm">
+                {#if track.explicit}
+                  <ExplicitBadge />
+                {/if}
+                <span class="truncate">{track.artist}</span>
+              </p>
             </div>
 
             <!-- Remove Button -->

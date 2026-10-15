@@ -9,6 +9,7 @@ export interface Track {
     albumArt: string;
     previewUrl?: string;
     duration_ms: number;
+    explicit?: boolean;
 }
 
 const STORAGE_KEY = 'hearmeout_saved_tracks';
